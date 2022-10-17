@@ -1,0 +1,289 @@
+---
+title: "Exploration des outputs diffman"
+author: "Clément G"
+date: "`r Sys.Date()`"
+output:
+  prettydoc::html_pretty:
+    theme: cayman
+    highlight: github
+    toc: true
+    toc_depth: 5
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE) 
+```
+
+
+```{r warning=FALSE,message=FALSE,echo = FALSE}
+
+paquets <- c("data.table","btb","remotes","sf","igraph","Matrix","leaflet","dplyr","ggplot2","prettydoc")
+install.packages(paquets)
+p <- lapply(paquets, function(p) suppressPackageStartupMessages(library(p, character.only = TRUE)))
+
+remotes::install_github("https://github.com/InseeFrLab/diffman-1")
+library(diffman)
+```
+
+```{r}
+rm(list=ls())
+source("fonctions_utiles.R")
+```
+
+## Chargement des données 
+```{r}
+
+communes <- st_read("../commune.shp")
+donnees_rp <- readRDS("../data_rp.rds")
+
+df <- setDT(donnees_rp)
+df %>% head()
+```
+
+On travaille sur la suite avec un sous-ensemble des données issues du département 01 (Ain)
+Les données mises à diisposition dans le package pourraient être utilisées mais elles sont moins parlantes pour tester
+```{r}
+df <- df[substr(z1,1,2) == "40"] 
+# df <- setDT(diffman::t_ex)[,.(nb_obs=length(id)),by=.(z1,z2)]
+```
+
+## Construction de la table de liens
+
+La fonction build_link_table construit à partir des données en entrée la table des liens
+une observation représente un triplet (z1_from x z2 x z1_to) désignant le chyevauchement d'un élément de z2 sur 2 communes. la table contient également le nombre d'unités statistiques de z2 sur z1_from et z2 sur z1_to ainsi que la composante connexe concernée
+```{r}
+# 15 secondes sur france entière
+link_table <- build_link_table(df) 
+link_table %>% head()
+
+```
+
+Etat des lieux de la taille des composantes connexes 
+```{r}
+ltable <- long_table(link_table)
+comp_to_ncom <- ltable[,.(n_z1 = length(unique(z1))),.(id_comp)][rev(order(n_z1))]
+comp_to_ncom %>% summary()
+
+max(comp_to_ncom$id_comp) # 1902
+quantile(comp_to_ncom$n_z1,probs = c(0,0.1,0.25,0.5,0.75,0.9,1))
+
+```
+
+## Représentation d'une "situation"
+Par "situation" on entend un sous-ensemble delma link_table ie un sous ensemble de liens. Il peut s'agir de l'ensemble des liens relatifs à une composante connexe particulière. Pour représenter graphiquemenet une situation il nous faut les geométries z1 et z2 associées. On les construit ici dans le cadre du GT_carreaux RP mais la fonction est agniostique à la situation tant que les géométries sont bien renseignées
+
+```{r}
+situation_table <- link_table[id_comp %in% c(2,3)]
+situation_table %>% head()
+```
+
+```{r}
+# unique(c(situation_table$from,situation_table$to))
+
+  liste_carreau <- situation_table$z2
+  
+  polygone_carreau <-
+    carreaux_to_polygon(data.frame(carreau = liste_carreau), var_carreau = "carreau") %>%
+    st_transform(crs = 4326)
+  
+  geom_z1 <- communes %>%
+    filter(code %in% unique(c(situation_table$from,situation_table$to))) %>%
+    select(code) %>%
+    rename(z1 = code)
+  
+  geom_z2 <- polygone_carreau %>%
+    rename(z2 = carreau) %>%
+    select(-x,-y)
+
+# calcul du nombre d'unité par carreaux
+z2_to_nb_obs <- long_table(link_table)[ ,.(nb_obs_z2 = sum(nb_obs)) ,by = .(z2)]
+
+draw_situation(situation_table,z2_to_nb_obs,geom_z1,geom_z2,threshold = 11)
+
+```
+## Reecriture de la fonction de recherche de problèmes de différenciation
+
+Je vais me restreindre ici au sous-ensemble des communes de la composante connexe 15 (cf leaflet précédent)
+```{r}
+situation_table <- link_table[id_comp %in% c(6)]
+```
+
+
+## construction des objets nécessaires à l'application des fonctions c++ de simplificationd e graph
+
+Ici on va construire les matrices à mettre en entrée de la routine cpp 
+On controlera visuellement les zones pointées du doigt par diffman
+La matrice attendue présentz n_z1 lignes et n_z2 colonnes  avec n_z2 le nombre d'éléments liaznts (un élément ici peut être une union de 3 carreaux si ces 3 carreaux intersectent 3 même communes)
+```{r}
+# j'agrege les carreaux qui relient les mêmes noeuds z1
+df <- link_table[ ,
+                          .(
+                            nb_obs_from = sum(nb_obs_from),
+                            nb_obs_to = sum(nb_obs_to),
+                            id_comp = unique(id_comp),
+                            z2 = paste0(z2,collapse = "-"),
+                            n_z2 = unique(n_z2)
+                          ),
+                          by = .(from,to)
+]
+
+ltable <-long_table(df)
+
+ltable$z1  <- as.factor(ltable$z1)
+ltable$z2  <- as.factor(ltable$z2)
+
+# variable" when running R CMD check
+# Matrice z1Xz2
+m_crois <- Matrix::sparseMatrix(i=as.numeric(ltable$z1),
+                                j=as.numeric(ltable$z2),
+                                x=ltable$nb_obs,
+                                dimnames=list(levels(ltable$z1),levels(ltable$z2)))
+
+m_crois 
+```
+Il y avait une erreur sur la matrice de croisement construite initialement l'agrégation n'avait pas de sens.
+m_crois donne pour chaque agregation liante de z2 la comune de z1 intersectée et le nombre d'individus
+
+Je charge les fonctions de Vianney par la suite 
+```{r}
+# " agregate etc.."
+# source("../R/fct_merging.R") 
+# # " test fus etc.."
+# source("../R/fct_merging_test.R") 
+# # " m_crois"
+# source("../R/fct_reshaping.R")
+# # " Decompose mcrois"
+# source("../R/fct_splitting.R")
+# # search_diff_agregat
+# source("../R/fct_search_diff.R")
+# # differencierRcpp
+# source("../R/RcppExports.R")
+
+
+```
+
+Initialisation du seuil à 11 !
+```{r}
+threshold = 11
+max_agregate_size = 15;save_file = NULL; simplify = TRUE; verbose = TRUE
+# threshold = 7; max_agregate_size = 15;save_file = NULL; simplify = TRUE; verbose = TRUE
+if(simplify){ #one can choose to skip these steps of graph reduction if desired
+  if(verbose) message("< --- Merging method 1 --- > ")
+  m_crois <- diffman:::agregate(m_crois, threshold, methode = "m1", verbose = verbose)
+  
+  #if(to_save) saveRDS(m_crois, paste0("Resultats_diffman/m_crois_ag_m1_",save_file,".RDS"))
+  
+  if(verbose) message("< --- Merging methods 1 and 2 --- >")
+  m_crois <- diffman:::agregate(m_crois, threshold, methode = "both", verbose = verbose)
+  
+  # warnings()
+  #if(to_save) saveRDS(m_crois, paste0("Resultats_diffman/m_crois_ag_m2_",save_file,".RDS"))
+  
+  if(sum(dim(m_crois)==0)>0) {
+    message("No differentiation problems detected !")
+    return(NULL)
+  }
+  
+  if(verbose) message("< --- Splitting the graph --- >")
+  l_decomp <- diffman:::decompose_m_crois(m_crois, max_agregate_size)
+  
+}else{
+  l_decomp <- diffman:::comp_connexe_list(m_crois)
+}
+
+if(verbose) message("< --- Exhaustive search of differentiation problems --- >")
+# sauvegarder l_decomp pourrait être intéressant
+l_ag <- diffman:::search_diff_agregate(l_decomp, threshold, max_agregate_size) 
+# dans fct_search_diff test composante connexe par composante connexe
+l_ag <- diffman:::desagregate_list(l_ag) 
+
+# Contient ou est sensé contenir les zones définies par des unions élmentaires de z1 qui vont être à risque de différenciation
+
+l_ag[[26]]
+```
+
+## Contrôle de la list ede zone à risque en sortie de diffman  :
+
+Cette liste correspond à des zones du zonage 1. Une zone est composée d'élément atomique de Z1, les zones présentées sont sensées être à risque
+```{r}
+#l_ag[[5]] : designe l'union des communes est ce que ce serait pas un cas dégénéré ?
+liste_z1 <- l_ag[[26]] 
+
+liste_carreau <- link_table[from %in% liste_z1 | to %in% liste_z1]$z2
+situation_table <- link_table[z2 %in% liste_carreau] # permet d'avoir tous les depcom intersectant un carreau à tracer
+
+polygone_carreau <-
+  carreaux_to_polygon(data.frame(carreau = liste_carreau), var_carreau = "carreau") %>%
+  st_transform(crs = 4326)
+
+geom_z1 <- communes %>%
+  filter(code %in% unique(c(situation_table$from,situation_table$to))) %>% #élargir aux communes qui so
+  select(code) %>%
+  rename(z1 = code)
+
+geom_z2 <- polygone_carreau %>%
+  rename(z2 = carreau) %>%
+  select(-x,-y)
+
+
+draw_situation(situation_table, z2_to_nb_obs,geom_z1, geom_z2, liste_z1_to_color = liste_z1,threshold = 11)
+
+```
+
+ça marche bien ! la zone orange donne la zonne différenciée  puis on voit facilement les carreaux et s'il s'agit de différenciation ionterne ou externe !
+Quand il manque des bouts de carreaux c'est soi t parce que le bout de commune est vide donc la commune n'apparait pas dans la link table
+Plus qu'à faire une petite fonction qui reporte la zone les carreaux à l'intersection, l'ensemble des carreaux concernés et si la différenciation est interne ou externe ! (partir des données brutes )
+```{r}
+# list_z1 list of elmentary area of Z1 which union lead to external or internal differenciation
+return_risky_z2 <- function(list_z1){
+  
+}
+devtools::document()
+```
+
+## TODO 
+1)
+Pour <- comparer les resultats de la routine modifié avec ce aue renvoyait diffman
+si on veut ocmparer diffman ancien et diff nouveau il faut passer par des données individuelles pour diffman ancien ? (exemple théorique test controlé)
+
+- EXEMPLES JOUETS ! (+ géométrie ?) (extraire cas particulier sur données réelles ?),(on ajuste à définir des ronds et des carreaux aux intersections, les carreaux ibntérieurs ne nous intéressent pas)
+- package testthat pour tester -< tests systematiques, snapshots  
+- DOCUMENTATION R Oxygen de suite
+- Mettre diffman séparé d'exploration clément (dans un gitlab à part)-> modif en parallèle du projet diffman1, 
+- devtools:document pour récupérer  la doc r oxygen
+- devtools:load_all : va charger l'enemble des fonctions du package, à partir du moment où cest fait, l'ensemble des fonctons du packgae sont testables 
+- devtools:check(cran = FALSE) pour vérifier qu'il y a tout ce qu'il faut sur le package
+# il faut ouvrir le projet diffman et être dessus Rproj pour taper ces commandes 
+- usethis package : si je veux ajouter un jeu de données à mon package usethis::use_data il va l'ajouter direct dansdata
+
+2)
+- communes influentes  -> carreaux influents eclabousse les autre zones à risque
+- comparer taille de m_crois en entrée et en sortie de l'algo
+- voir dans quelle mesure les critiques faites par diffman sont pertinentes
+- diffman était-il buggé quelle version a été utilisée ?
+- construire liste de cas théorique avec ce qu'on veut que diffman trouve
+- diffman Tab 
+- faire plusieurs scénarios de blanchiment et regarder des indicateurs par scénario, nb de carreaux blanchis en dessus du seuilsur total en dessus du seuil) somme des valeurs blanchies
+- s'intéresser aux communautés, aux points ingfluents etc..
+- calcuker la réduction du nb composantes 
+- nb areas à risque nb d'individu concernés
+- regarder la taille de m_crois au final pour observer lma diminution liée au fussions etc..
+- généraliser les filtres au départ cf fr_unallocated dans la foonction build link table en controlant par kle nombre de caractères
+- maîtriser diffman sur petite composante connexe
+- faire une fonction "dra_the_whole_situation" avec les unions de polygone de z1 pour chaque composantes connexes (peut prendre du temps cf compo connexes enormes) 
+- à partir de la liste de z1 composant l'union à risque extirpée retrouver les carreaux à risque puis penser à une stratégie de blanchiment associée (plusieurs scénarios à proposer et les tester)
+- compter le nombre de carreaux blanchis via cette méthode et les scénarios et regarder le nombre de carreaux qui sont effectivement au dessus du seuil pour voir l'apport de diffman
+- packager search diff iontelligememnt
+- Construire un exemple jouet pour bien contôler les sorties de diffman
+- Comment être béton sur les contrôles
+- Ecriture de doc -W voir avec Julien, CI/CD
+-mettre à dispo une carte avec un hyper lien dans labstract (type codeage ilots ?)
+
+- pour la grosse composante, regarder si ça casse pas en 2 à certains endroits
+- travaux sur les commuanuatés dazns graph ou l'influence des noeuds (dans le but de les enlever)
+
+## Remarques
+
+- Les carreaux liant plus que 3 communes ont des oobsvertions comptées en doublons :
+cf triangle de com A1 A2 A3 lavec un carreau liant ca
+ca inter A1 est compter dans la liaison A1-A2 et A1-A3
