@@ -102,7 +102,44 @@ long_table <- function(link_table){
   
 }
 
-
+# a partir d'une liste de commune (en sortie ou non de diffman) sort toutes les informations permettant d'évaluer si un problèùe de différenciaition existe sur cette zone
+# en sortie, 2 booleen diff_intern issue (resp external), alertant sur le type de pb de différenciation
+# puis les tables avec les intersections carreaux x commune pour les carreaux à cheval sur la zone en question (définie par l'union des communes en paramètre dans liste_z1)
+# TO DO ajouter l'ensemble des carreaux inclus totalement ou partiellement dans la zone (nécessite d'avoir les données en entrée ou de sortir lors de la construction de la linktable une liste avec link table d'un côté et de l'autre la table des carreaux inclus totalement )
+return_info <- function(liste_z1,link_table, threshold){
+  
+  #liste_z1
+  
+  # on veut pour la zone en question sortir tous les carreaux problématiques (dire si on a différenciation externe ou interne)
+  dataf <- long_table(link_table) 
+  z2_target <- dataf[z1 %in% liste_z1,]$z2 # les carreaux impactés, par def de link table
+  
+  # sortir les z2 à cheval  sur 1 commune de la zone et une commune externe
+  at_risk_crossing <- unique(dataf[z2 %in% z2_target &  ! z1 %in% liste_z1,"z2"])
+  
+  # je les récupère dans la table initiame
+  diff_table <- dataf[z2 %in% at_risk_crossing$z2 ]
+  external_diff_table <-diff_table[ !z1 %in% liste_z1]
+  internal_diff_table <-diff_table[ z1 %in% liste_z1]
+  
+  external_diff_issue <- internal_diff_issue <- FALSE
+  
+  # Ok + qu'à sommer sur nb_obs pour savoir si le seuil est respecté ou non dans la diff interne ou externe
+  if (sum(internal_diff_table$nb_obs) < threshold) internal_diff_issue <- TRUE
+  if (sum(external_diff_table$nb_obs) < threshold) external_diff_issue <- TRUE
+  
+  # Il faut sortir les carreaux au bord de la zone
+  
+  out <- list(internal_diff_table = internal_diff_table,
+              external_diff_table = external_diff_table,
+              internal_diff_issue = internal_diff_issue, 
+              external_diff_issue = external_diff_issue
+  )
+  return(out)
+  # il faut maintenant sortir la partie des carreaux non incluse dans la zone de commune pour checker la diff externe
+  # et isoler celle incluse pour la diffinterne (easy)
+  
+}
 # dessiner une situation donnée (situation = sous ensembe de la link table
 # trace la situation à partir des géométries ciomplètes de z1 zet z2 en entrée : réalise l'intersection géométrique et &affiche le nb_obs
 

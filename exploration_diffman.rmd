@@ -49,7 +49,7 @@ df_init %>% head()
 On travaille sur la suite avec un sous-ensemble des données issues du département 01 (Ain)
 Les données mises à diisposition dans le package pourraient être utilisées mais elles sont moins parlantes pour tester
 ```{r}
-df <- df_init[substr(z1,1,2) == "22"] 
+df <- df_init[substr(z1,1,2) == "40"] 
 # df <- setDT(diffman::t_ex)[,.(nb_obs=length(id)),by=.(z1,z2)]
 ```
 
@@ -68,6 +68,7 @@ Etat des lieux de la taille des composantes connexes
 ```{r}
 ltable <- long_table(link_table)
 comp_to_ncom <- ltable[,.(n_z1 = length(unique(z1))),.(id_comp)][rev(order(n_z1))]
+comp_to_ncom
 #comp_to_ncom %>% summary()
 #max(comp_to_ncom$id_comp) # 1902
 #quantile(comp_to_ncom$n_z1,probs = c(0,0.1,0.25,0.5,0.75,0.9,1))
@@ -78,7 +79,7 @@ comp_to_ncom <- ltable[,.(n_z1 = length(unique(z1))),.(id_comp)][rev(order(n_z1)
 Par "situation" on entend un sous-ensemble delma link_table ie un sous ensemble de liens. Il peut s'agir de l'ensemble des liens relatifs à une composante connexe particulière. Pour représenter graphiquemenet une situation il nous faut les geométries z1 et z2 associées. On les construit ici dans le cadre du GT_carreaux RP mais la fonction est agniostique à la situation tant que les géométries sont bien renseignées
 
 ```{r}
-situation_table <- link_table[id_comp %in% c(1)]
+situation_table <- link_table[id_comp %in% c(1,6)]
 situation_table %>% head()
 ```
 
@@ -110,7 +111,7 @@ draw_situation(situation_table,z2_to_nb_obs,geom_z1,geom_z2,threshold = 11)
 
 Je vais me restreindre ici au sous-ensemble des communes de la composante connexe 15 (cf leaflet précédent)
 ```{r}
-situation_table <- link_table[id_comp %in% c(6)]
+situation_table <- link_table[id_comp %in% c(1)]
 ```
 
 
@@ -204,7 +205,7 @@ l_ag <- diffman:::desagregate_list(l_ag)
 
 # Contient ou est sensé contenir les zones définies par des unions élmentaires de z1 qui vont être à risque de différenciation
 
-l_ag[[26]]
+#l_ag[[26]]
 ```
 
 ## Contrôle de la list ede zone à risque en sortie de diffman  :
@@ -212,7 +213,7 @@ l_ag[[26]]
 Cette liste correspond à des zones du zonage 1. Une zone est composée d'élément atomique de Z1, les zones présentées sont sensées être à risque
 ```{r}
 #l_ag[[5]] : designe l'union des communes est ce que ce serait pas un cas dégénéré ?
-liste_z1 <- l_ag[[26]] 
+liste_z1 <- l_ag[[116]] 
 
 liste_carreau <- link_table[from %in% liste_z1 | to %in% liste_z1]$z2
 situation_table <- link_table[z2 %in% liste_carreau] # permet d'avoir tous les depcom intersectant un carreau à tracer
@@ -240,10 +241,45 @@ Quand il manque des bouts de carreaux c'est soi t parce que le bout de commune e
 Plus qu'à faire une petite fonction qui reporte la zone les carreaux à l'intersection, l'ensemble des carreaux concernés et si la différenciation est interne ou externe ! (partir des données brutes )
 ```{r}
 # list_z1 list of elmentary area of Z1 which union lead to external or internal differenciation
-return_risky_z2 <- function(list_z1){
+return_risky_z2 <- function(liste_z1,link_table, threshold){
+  
+  #liste_z1
+  
+  # on veut pour la zone en question sortir tous les carreaux problématiques (dire si on a différenciation externe ou interne)
+  dataf <- long_table(link_table) 
+  z2_target <- dataf[z1 %in% liste_z1,]$z2 # les carreaux impactés, par def de link table
+ 
+  # sortir les z2 à cheval  sur 1 commune de la zone et une commune externe
+  at_risk_crossing <- unique(dataf[z2 %in% z2_target &  ! z1 %in% liste_z1,"z2"])
+  
+  # je les récupère dans la table initiame
+  diff_table <- dataf[z2 %in% at_risk_crossing$z2 ]
+  external_diff_table <-diff_table[ !z1 %in% liste_z1]
+  internal_diff_table <-diff_table[ z1 %in% liste_z1]
+  
+  external_diff_issue <- internal_diff_issue <- FALSE
+  
+  # Ok + qu'à sommer sur nb_obs pour savoir si le seuil est respecté ou non dans la diff interne ou externe
+  if (sum(internal_diff_table$nb_obs) < threshold) internal_diff_issue <- TRUE
+  if (sum(external_diff_table$nb_obs) < threshold) external_diff_issue <- TRUE
+  
+  # Il faut sortir les carreaux au bord de la zone
+  
+  out <- list(internal_diff_table = internal_diff_table,
+              external_diff_table = external_diff_table,
+              internal_diff_issue = internal_diff_issue, 
+              external_diff_issue = external_diff_issue
+              )
+  return(out)
+  # il faut maintenant sortir la partie des carreaux non incluse dans la zone de commune pour checker la diff externe
+  # et isoler celle incluse pour la diffinterne (easy)
   
 }
-devtools::document()
+
+
+return_risky_z2(liste_z1 = liste_z1, link_table = link_table, threshold = 11)
+
+devtools::document() # pour produire la doc Roxygen2
 ```
 
 ## TODO 
