@@ -102,6 +102,35 @@ long_table <- function(link_table){
   
 }
 
+
+# construire la matrice de croisement à partir de la link table
+construire_m_crois <- function(link_table){
+  
+  df <- link_table[ ,
+                    .(
+                      nb_obs_from = sum(nb_obs_from),
+                      nb_obs_to = sum(nb_obs_to),
+                      id_comp = unique(id_comp),
+                      z2 = paste0(z2,collapse = "-"),
+                      n_z2 = unique(n_z2)
+                    ),
+                    by = .(from,to)
+  ]
+  
+  ltable <-long_table(df)
+  
+  ltable$z1  <- as.factor(ltable$z1)
+  ltable$z2  <- as.factor(ltable$z2)
+  
+  # variable" when running R CMD check
+  # Matrice z1Xz2
+  m_crois <- Matrix::sparseMatrix(i=as.numeric(ltable$z1),
+                                  j=as.numeric(ltable$z2),
+                                  x=ltable$nb_obs,
+                                  dimnames=list(levels(ltable$z1),levels(ltable$z2)))
+  
+  m_crois 
+}
 # a partir d'une liste de commune (en sortie ou non de diffman) sort toutes les informations permettant d'évaluer si un problèùe de différenciaition existe sur cette zone
 # en sortie, 2 booleen diff_intern issue (resp external), alertant sur le type de pb de différenciation
 # puis les tables avec les intersections carreaux x commune pour les carreaux à cheval sur la zone en question (définie par l'union des communes en paramètre dans liste_z1)
@@ -140,6 +169,54 @@ return_info <- function(liste_z1,link_table, threshold){
   # et isoler celle incluse pour la diffinterne (easy)
   
 }
+
+# fonction qui prend en entrée m_Crois, qui opère les focnctions de réduction de graph dessus et qui retourne in fine la liste des zones, (union d'élément de z1 ) à risque 
+# TO DO refaire une fonction qui récupère la matrice m_Crois après pour mesurer la force simplificatrice (nb composantes ) checker)
+# penser à regarder les codes c++
+
+sortir_liste_zones_a_risque <- function(
+    link_table,
+    max_agregate_size = 15,
+    save_file = NULL,
+    simplify = TRUE,
+    verbose = TRUE,
+    threshold = 11
+  ){
+    
+    m_crois <- construire_m_crois(link_table)
+    # threshold = 7; max_agregate_size = 15;save_file = NULL; simplify = TRUE; verbose = TRUE
+    if(simplify){ #one can choose to skip these steps of graph reduction if desired
+      if(verbose) message("< --- Merging method 1 --- > ")
+      m_crois <- diffman:::agregate(m_crois, threshold, methode = "m1", verbose = verbose)
+      
+      #if(to_save) saveRDS(m_crois, paste0("Resultats_diffman/m_crois_ag_m1_",save_file,".RDS"))
+      
+      if(verbose) message("< --- Merging methods 1 and 2 --- >")
+      m_crois <- diffman:::agregate(m_crois, threshold, methode = "both", verbose = verbose)
+      
+      # warnings()
+      #if(to_save) saveRDS(m_crois, paste0("Resultats_diffman/m_crois_ag_m2_",save_file,".RDS"))
+      
+      if(sum(dim(m_crois)==0)>0) {
+        message("No differentiation problems detected !")
+        return(NULL)
+      }
+      
+      if(verbose) message("< --- Splitting the graph --- >") # à regarder
+      l_decomp <- diffman:::decompose_m_crois(m_crois, max_agregate_size)
+      
+    }else{
+      l_decomp <- diffman:::comp_connexe_list(m_crois)
+    }
+    
+    if(verbose) message("< --- Exhaustive search of differentiation problems --- >")
+    # sauvegarder l_decomp pourrait être intéressant
+    l_ag <- diffman:::search_diff_agregate(l_decomp, threshold, max_agregate_size) 
+    # dans fct_search_diff test composante connexe par composante connexe
+    l_ag <- diffman:::desagregate_list(l_ag) 
+    
+    return(l_ag)
+  }
 # dessiner une situation donnée (situation = sous ensembe de la link table
 # trace la situation à partir des géométries ciomplètes de z1 zet z2 en entrée : réalise l'intersection géométrique et &affiche le nb_obs
 

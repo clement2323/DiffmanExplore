@@ -122,30 +122,7 @@ On controlera visuellement les zones pointées du doigt par diffman
 La matrice attendue présentz n_z1 lignes et n_z2 colonnes  avec n_z2 le nombre d'éléments liaznts (un élément ici peut être une union de 3 carreaux si ces 3 carreaux intersectent 3 même communes)
 ```{r}
 # j'agrege les carreaux qui relient les mêmes noeuds z1
-df <- link_table[ ,
-                          .(
-                            nb_obs_from = sum(nb_obs_from),
-                            nb_obs_to = sum(nb_obs_to),
-                            id_comp = unique(id_comp),
-                            z2 = paste0(z2,collapse = "-"),
-                            n_z2 = unique(n_z2)
-                          ),
-                          by = .(from,to)
-]
 
-ltable <-long_table(df)
-
-ltable$z1  <- as.factor(ltable$z1)
-ltable$z2  <- as.factor(ltable$z2)
-
-# variable" when running R CMD check
-# Matrice z1Xz2
-m_crois <- Matrix::sparseMatrix(i=as.numeric(ltable$z1),
-                                j=as.numeric(ltable$z2),
-                                x=ltable$nb_obs,
-                                dimnames=list(levels(ltable$z1),levels(ltable$z2)))
-
-m_crois 
 ```
 Il y avait une erreur sur la matrice de croisement construite initialement l'agrégation n'avait pas de sens.
 m_crois donne pour chaque agregation liante de z2 la comune de z1 intersectée et le nombre d'individus
@@ -168,43 +145,9 @@ Je charge les fonctions de Vianney par la suite
 
 ```
 
-Initialisation du seuil à 11 !
 ```{r}
-threshold = 11
-max_agregate_size = 15;save_file = NULL; simplify = TRUE; verbose = TRUE
-# threshold = 7; max_agregate_size = 15;save_file = NULL; simplify = TRUE; verbose = TRUE
-if(simplify){ #one can choose to skip these steps of graph reduction if desired
-  if(verbose) message("< --- Merging method 1 --- > ")
-  m_crois <- diffman:::agregate(m_crois, threshold, methode = "m1", verbose = verbose)
-  
-  #if(to_save) saveRDS(m_crois, paste0("Resultats_diffman/m_crois_ag_m1_",save_file,".RDS"))
-  
-  if(verbose) message("< --- Merging methods 1 and 2 --- >")
-  m_crois <- diffman:::agregate(m_crois, threshold, methode = "both", verbose = verbose)
-  
-  # warnings()
-  #if(to_save) saveRDS(m_crois, paste0("Resultats_diffman/m_crois_ag_m2_",save_file,".RDS"))
-  
-  if(sum(dim(m_crois)==0)>0) {
-    message("No differentiation problems detected !")
-    return(NULL)
-  }
-  
-  if(verbose) message("< --- Splitting the graph --- >")
-  l_decomp <- diffman:::decompose_m_crois(m_crois, max_agregate_size)
-  
-}else{
-  l_decomp <- diffman:::comp_connexe_list(m_crois)
-}
-
-if(verbose) message("< --- Exhaustive search of differentiation problems --- >")
-# sauvegarder l_decomp pourrait être intéressant
-l_ag <- diffman:::search_diff_agregate(l_decomp, threshold, max_agregate_size) 
-# dans fct_search_diff test composante connexe par composante connexe
-l_ag <- diffman:::desagregate_list(l_ag) 
-
+l_ag <-sortir_liste_zones_a_risque(link_table)
 # Contient ou est sensé contenir les zones définies par des unions élmentaires de z1 qui vont être à risque de différenciation
-
 #l_ag[[26]]
 ```
 
@@ -239,18 +182,27 @@ draw_situation(situation_table, z2_to_nb_obs,geom_z1, geom_z2, liste_z1_to_color
 ça marche bien ! la zone orange donne la zonne différenciée  puis on voit facilement les carreaux et s'il s'agit de différenciation ionterne ou externe !
 Quand il manque des bouts de carreaux c'est soi t parce que le bout de commune est vide donc la commune n'apparait pas dans la link table
 Plus qu'à faire une petite fonction qui reporte la zone les carreaux à l'intersection, l'ensemble des carreaux concernés et si la différenciation est interne ou externe ! (partir des données brutes )
+
 ```{r}
-
+# partie non visuelle mais même info
 return_info(liste_z1 = liste_z1, link_table = link_table, threshold = 11)
-
-devtools::document() # pour produire la doc Roxygen2
 ```
+
+### Construction d'exemples minimaux 
+Ici on va constuire des exemples jouets pour tester le diffman en cours de création et le diffman cran chargé avec le package 
+bien diffé&rencier les appels au fonction de diffman et les appels aux fonctions de diffman modifiés
+avec les :: ? tester les fonctions de julien sur devtools
+
+Pour chaque exemple reproduire un exemple sur données individuelles pour que diffman puisse le prendre
+
 
 ## TODO 
 1)
 Pour <- comparer les resultats de la routine modifié avec ce aue renvoyait diffman
 si on veut ocmparer diffman ancien et diff nouveau il faut passer par des données individuelles pour diffman ancien ? (exemple théorique test controlé)
 
+- grosse compôsante...à gérer
+- devtools::document() # pour produire la doc Roxygen2
 - EXEMPLES JOUETS ! (+ géométrie ?) (extraire cas particulier sur données réelles ?),(on ajuste à définir des ronds et des carreaux aux intersections, les carreaux ibntérieurs ne nous intéressent pas)
 - package testthat pour tester -< tests systematiques, snapshots  
 - DOCUMENTATION R Oxygen de suite
