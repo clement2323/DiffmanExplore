@@ -32,24 +32,24 @@ source("fonctions_utiles.R")
 
 ## Chargement des données 
 ```{r}
-mc cp s3/cguillo/commune_franceentiere_2021.dbf data/commune_franceentiere_2021.dbf
-mc cp s3/cguillo/commune_franceentiere_2021.fix data/commune_franceentiere_2021.fix
-mc cp s3/cguillo/commune_franceentiere_2021.prj data/commune_franceentiere_2021.prj
-mc cp s3/cguillo/commune_franceentiere_2021.shp data/commune_franceentiere_2021.shp
-mc cp s3/cguillo/commune_franceentiere_2021.shx data/commune_franceentiere_2021.shx
+#mc cp s3/cguillo/commune_franceentiere_2021.dbf data/commune_franceentiere_2021.dbf
+#mc cp s3/cguillo/commune_franceentiere_2021.fix data/commune_franceentiere_2021.fix
+#mc cp s3/cguillo/commune_franceentiere_2021.prj data/commune_franceentiere_2021.prj
+#mc cp s3/cguillo/commune_franceentiere_2021.shp data/commune_franceentiere_2021.shp
+#mc cp s3/cguillo/commune_franceentiere_2021.shx data/commune_franceentiere_2021.shx
+#mc cp s3/cguillo/data_rp.rds data/data_rp.rds
 
+communes <- st_read("data/commune_franceentiere_2021.shp")
+donnees_rp <- readRDS("data/data_rp.rds")
 
-communes <- st_read("../commune.shp")
-donnees_rp <- readRDS("../data_rp.rds")
-
-df <- setDT(donnees_rp)
-df %>% head()
+df_init <- setDT(donnees_rp)
+df_init %>% head()
 ```
 
 On travaille sur la suite avec un sous-ensemble des données issues du département 01 (Ain)
 Les données mises à diisposition dans le package pourraient être utilisées mais elles sont moins parlantes pour tester
 ```{r}
-df <- df[substr(z1,1,2) == "40"] 
+df <- df_init[substr(z1,1,2) == "22"] 
 # df <- setDT(diffman::t_ex)[,.(nb_obs=length(id)),by=.(z1,z2)]
 ```
 
@@ -68,10 +68,9 @@ Etat des lieux de la taille des composantes connexes
 ```{r}
 ltable <- long_table(link_table)
 comp_to_ncom <- ltable[,.(n_z1 = length(unique(z1))),.(id_comp)][rev(order(n_z1))]
-comp_to_ncom %>% summary()
-
-max(comp_to_ncom$id_comp) # 1902
-quantile(comp_to_ncom$n_z1,probs = c(0,0.1,0.25,0.5,0.75,0.9,1))
+#comp_to_ncom %>% summary()
+#max(comp_to_ncom$id_comp) # 1902
+#quantile(comp_to_ncom$n_z1,probs = c(0,0.1,0.25,0.5,0.75,0.9,1))
 
 ```
 
@@ -79,7 +78,7 @@ quantile(comp_to_ncom$n_z1,probs = c(0,0.1,0.25,0.5,0.75,0.9,1))
 Par "situation" on entend un sous-ensemble delma link_table ie un sous ensemble de liens. Il peut s'agir de l'ensemble des liens relatifs à une composante connexe particulière. Pour représenter graphiquemenet une situation il nous faut les geométries z1 et z2 associées. On les construit ici dans le cadre du GT_carreaux RP mais la fonction est agniostique à la situation tant que les géométries sont bien renseignées
 
 ```{r}
-situation_table <- link_table[id_comp %in% c(2,3)]
+situation_table <- link_table[id_comp %in% c(1)]
 situation_table %>% head()
 ```
 

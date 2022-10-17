@@ -26,9 +26,9 @@ carreaux_to_polygon <- function(data, var_carreau){
 }
 
 nettoyer_base_init <- function(input_df){
-  
+  #input_df <- df
   df <- copy(input_df)
-  df <- df[,.(nb_obs=sum(nb_obs)),by = .(z1,z2)]# doublon
+  df <- df[,.(nb_obs = sum(nb_obs)),by = .(z1,z2)]# doublon
   ## Suppression des lignes hors format mettre en place des controles + suppression des zéros
   df <- df[z2 != "FR_unallocated"]
   df <- df[nb_obs != 0]
@@ -41,10 +41,9 @@ nettoyer_base_init <- function(input_df){
 build_link_table <- function(input_df){
   # donnees_rp <- readRDS("../data_rp.rds")
   # df <- setDT(donnees_rp)
-  # input_df <- df[substr(z1,1,2) == "40"]
+  # input_df <- df[substr(z1,1,2) == "22"]
   
   df <- copy(input_df)
-  
   df <- nettoyer_base_init(df)
   ## Je mets de côté les carreaux (z2) intersectant une et une seule commune (z1)
   df_z2 <- df[,.(nb_z1=length(z1)),by=.(z2)]
