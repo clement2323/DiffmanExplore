@@ -32,6 +32,12 @@ source("fonctions_utiles.R")
 
 ## Chargement des données 
 ```{r}
+mc cp s3/cguillo/commune_franceentiere_2021.dbf data/commune_franceentiere_2021.dbf
+mc cp s3/cguillo/commune_franceentiere_2021.fix data/commune_franceentiere_2021.fix
+mc cp s3/cguillo/commune_franceentiere_2021.prj data/commune_franceentiere_2021.prj
+mc cp s3/cguillo/commune_franceentiere_2021.shp data/commune_franceentiere_2021.shp
+mc cp s3/cguillo/commune_franceentiere_2021.shx data/commune_franceentiere_2021.shx
+
 
 communes <- st_read("../commune.shp")
 donnees_rp <- readRDS("../data_rp.rds")
