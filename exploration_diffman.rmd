@@ -240,44 +240,8 @@ draw_situation(situation_table, z2_to_nb_obs,geom_z1, geom_z2, liste_z1_to_color
 Quand il manque des bouts de carreaux c'est soi t parce que le bout de commune est vide donc la commune n'apparait pas dans la link table
 Plus qu'à faire une petite fonction qui reporte la zone les carreaux à l'intersection, l'ensemble des carreaux concernés et si la différenciation est interne ou externe ! (partir des données brutes )
 ```{r}
-# list_z1 list of elmentary area of Z1 which union lead to external or internal differenciation
-return_risky_z2 <- function(liste_z1,link_table, threshold){
-  
-  #liste_z1
-  
-  # on veut pour la zone en question sortir tous les carreaux problématiques (dire si on a différenciation externe ou interne)
-  dataf <- long_table(link_table) 
-  z2_target <- dataf[z1 %in% liste_z1,]$z2 # les carreaux impactés, par def de link table
- 
-  # sortir les z2 à cheval  sur 1 commune de la zone et une commune externe
-  at_risk_crossing <- unique(dataf[z2 %in% z2_target &  ! z1 %in% liste_z1,"z2"])
-  
-  # je les récupère dans la table initiame
-  diff_table <- dataf[z2 %in% at_risk_crossing$z2 ]
-  external_diff_table <-diff_table[ !z1 %in% liste_z1]
-  internal_diff_table <-diff_table[ z1 %in% liste_z1]
-  
-  external_diff_issue <- internal_diff_issue <- FALSE
-  
-  # Ok + qu'à sommer sur nb_obs pour savoir si le seuil est respecté ou non dans la diff interne ou externe
-  if (sum(internal_diff_table$nb_obs) < threshold) internal_diff_issue <- TRUE
-  if (sum(external_diff_table$nb_obs) < threshold) external_diff_issue <- TRUE
-  
-  # Il faut sortir les carreaux au bord de la zone
-  
-  out <- list(internal_diff_table = internal_diff_table,
-              external_diff_table = external_diff_table,
-              internal_diff_issue = internal_diff_issue, 
-              external_diff_issue = external_diff_issue
-              )
-  return(out)
-  # il faut maintenant sortir la partie des carreaux non incluse dans la zone de commune pour checker la diff externe
-  # et isoler celle incluse pour la diffinterne (easy)
-  
-}
 
-
-return_risky_z2(liste_z1 = liste_z1, link_table = link_table, threshold = 11)
+return_info(liste_z1 = liste_z1, link_table = link_table, threshold = 11)
 
 devtools::document() # pour produire la doc Roxygen2
 ```
