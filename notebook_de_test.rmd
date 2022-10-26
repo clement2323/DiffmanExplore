@@ -258,19 +258,17 @@ Creation grille superposée avant application griddy
 
 input_dt <- clean_init_dt(data_rp)
 # Préparation des grilles superposées
+# sh_carr_1km <- carreaux_to_polygon(input_dt[1:10,], var_carreau = "z2")
 
-sh_carr_1km <- carreaux_to_polygon(carr[1:10,], var_carreau = "carreau")
-
-centroid_carr_1km <- get_centroid_carreau(carr, "carreau") %>% 
+centroid_carr_1km <- get_centroid_carreau(input_dt, "z2")$df %>% 
   select(carreau_1km_orig = carreau, crs, x = centroid_x, y = centroid_y)
-
-str(centroid_carr_1km)
 
 centroid_carr_1km_dt <- data.table::as.data.table(centroid_carr_1km)
 
 mailles = 2^(0:6)*1000
 names(mailles) <- paste0(2^(0:6),"km")
-grilles_superposees_dt <- gridy::create_grids(centroid_carr_1km_dt, mailles = mailles, eurostat = TRUE)
+grilles_superposees_dt <- 
+  gridy::create_grids(centroid_carr_1km_dt, mailles = mailles, eurostat = TRUE)
 
 
 carr %>% 
