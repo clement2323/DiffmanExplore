@@ -31,8 +31,8 @@ devtools::install_github(
   build_vignettes = TRUE,
   force = TRUE
   )
-library(diffman)
 vignette("diffman")
+library(diffman)
 ```
 
 ```{r}
@@ -48,7 +48,7 @@ mc cp s3/cguillo/commune_franceentiere_2021.shp ext_data/commune_franceentiere_2
 mc cp s3/cguillo/commune_franceentiere_2021.shx ext_data/commune_franceentiere_2021.shx
 mc cp s3/cguillo/data_rp.rds ext_data/data_rp.rds
 mc cp s3/cguillo/gridy-master.zip  gridy-master.zip
-mc cp --recursive s3/cguillo/diff_info diff_info
+mc cp --recursive s3/cguillo/diff_info/ diff_info
 
 ## Code de travail, je pars des données RP
 ```{r}
@@ -76,7 +76,7 @@ head(l_area_z1_at_risk,20)
 299 union of elements of z1 at risk of differenciation here. let's look further one this risk area
 ```{r}
 #lapply(l_area_z1_at_risk,length)
-area_z1_at_risk <- l_area_z1_at_risk[[10]]
+area_z1_at_risk <- l_area_z1_at_risk[[20]]
 area_z1_at_risk
 
 ```
@@ -86,20 +86,15 @@ The return diff info function allows us to know exactly where the differencing i
 diff_info <-return_diff_info(list_z1 = area_z1_at_risk,threshold = 11,input_dt = input_dt)
 diff_info
 ```
-Now we can represent the at risk area with the draw situation function
-First we have to create the geometry needed to represent the situation
+
+On peut représenter la zone à risque de cette façon
 ```{r}
 situation_table <- input_dt[z1 %in% area_z1_at_risk]
 situation_table <- input_dt[z2 %in% situation_table$z2]
 situation_table <- clean_init_dt(situation_table)
 
-diffman:::clean_init_dt()
 l<- preparer_geom(situation_table)
 
-```
-
-And then we can draw the situation on an interactive map
-```{r}
 draw_situation(
   situation_table,
   l$geom_z1,
@@ -109,9 +104,26 @@ draw_situation(
                )
 ```
 
-Looking at the square at the intersection of the blue municapility and the orange one (those of the area at risk ) we recognize the square disoplaty by the return_diff_info function !
-Bioen noter qu'un problème de différenciation externe sera également un problème de différenciation interne pour le complémentaire dans le graph !
+La zone jaune est la zone à risque, je fais apparaitre en bleu les communes limitrophe à la zone (au sens de la connection). Il faut bien comprendre qu'un problème de differenciation interne dans la zone jaune se caracterisera par un priobleme de differenciation externe dans le complementaire de la zone jaune dans la composante connexe.
 
+On peut d'ailleurs faire apparaitre la totalité du complémentaire de la façon suivante : 
+
+```{r}
+situation_table <- input_dt
+situation_table <- clean_init_dt(situation_table)
+
+l<- preparer_geom(situation_table)
+
+draw_situation(
+  situation_table,
+  l$geom_z1,
+  l$geom_z2,
+  list_z1_to_color = area_z1_at_risk,
+  threshold = 11
+               )
+
+```
+Ici toute la composante est représentée en tant que  zone_a_risque Union sont complémentaires dans la composante.
 ```{r}
 diff_info
 ```
@@ -172,14 +184,14 @@ comp_info %>%
 id_comp_max <- comp_info[which.max(comp_info$ratio_risk_nb_com)]$id_comp
 list_z1 <- compo[id_comp == id_comp_max]$z1
 input_dt <- data_rp[z1%in% list_z1]
-situation_table <- clean_init_dt(dt)
+situation_table <- clean_init_dt(input_dt)
 
 l<- preparer_geom(situation_table)
 
 draw_situation(
   situation_table,
-  geom_z1,
-  geom_z2,
+  l$geom_z1,
+  l$geom_z2,
   threshold = 11
                )
 
@@ -231,20 +243,25 @@ Amélioration de la représentationa vec les carreaux interne et les carreaux bl
 Puis forme d'union des masques
 
 ## Application de diffman sur les différents niveaux de la grilles superposée
+
 Ici je vais brancher avec le travail de Julien pour observer les pbs de différenciations sur des grilles plus grosses. Même si on arrive à protéger un niveau de la différenciation comment est-on sûr que le niveau le plus fin ne donne pas d'info, sur le niveau le plus grossier ?
 
 J'ai téléchargé le zip de griddy de gitlab.insee.fr pour avoir accès aux fonction créant les grilles superposées https://gitlab.insee.fr/outilsconfidentialite/gridy et je m'inspire ds codes de Julien dans https://gitlab.insee.fr/expertisesconfidentialite/carreaux_rp/-/blob/main/R/00_parametres.R
 ```{r}
+remove.packages("gridy")
+install.packages("gridy_0.1.1.tar.gz", repos = NULL)
 
-install_github()
-?install_github
+library(gridy)
 
 
+# je dezip le package puios je devtools build dans le Rproj
 
 ```
 
+
 ## TO DO :
-- finalement on va proposer dans le package une stratégie de protection pourdiffman hors gridy (ie hors multi level) et on verra ce qsu'on fait pour griddy
+- régler les dernieres otes(notamment diff_info repertory fantome)
+- finalement on va proposer dans le package une stratégie de protection pour diffman hors gridy (ie hors multi level) et on verra ce qsu'on fait pour griddy
 - Algo de protection post diffman, function qui prend en entrée la table diff_info globale  et l'input_dt qui traite compo par compo 
   i) Version Bête : je choisis des carreaux interne  < 11 ménages si ily en a assez sum( carreaux blanchis >11 alors c'est bon )
   ii) je cherche des carreaux influents (déduits de l'influence de la commune dans le graph) et les blanchis comme ça je suissûr qu'ils seront déjà utiles pour une autre zone-> découper le taf par composante ?
