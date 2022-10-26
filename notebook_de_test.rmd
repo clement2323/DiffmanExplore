@@ -20,11 +20,15 @@ paquets <- c("data.table","btb","remotes","sf","igraph","Matrix","leaflet","dply
 p <- lapply(paquets, function(p) suppressPackageStartupMessages(library(p, character.only = TRUE)))
 # remotes::install_github("https://github.com/InseeFrLab/diffman-1")
 ```
-## Code de travail, je pars des données RP
 
+
+## Installation du package difffman dans diffmanTab
 ```{r}
-devtools::load_all()
+devtools::install_github(repo = "InseeFrLab/diffman-1",ref = "diffmanTab")
+```
 
+## Code de travail, je pars des données RP
+```{r}
 ### Ce code sera amené à disparaitre, en fire une vignette ! ou bien un rmd !!!
 #### Test sur données réelles 
 communes <-sf::st_read("ext_data/commune_franceentiere_2021.shp")
@@ -269,8 +273,7 @@ install_github()
 ?install_github
 
 
-devtools::install_github("InseeFrLab/diffman-1",
-           ref = "diffmanTab", subdir = "pkg")
+
 ```
 
 ## TO DO :
@@ -299,3 +302,5 @@ mc cp s3/cguillo/commune_franceentiere_2021.prj ext_data/commune_franceentiere_2
 mc cp s3/cguillo/commune_franceentiere_2021.shp ext_data/commune_franceentiere_2021.shp
 mc cp s3/cguillo/commune_franceentiere_2021.shx ext_data/commune_franceentiere_2021.shx
 mc cp s3/cguillo/data_rp.rds ext_data/data_rp.rds
+mc cp s3/cguillo/gridy-master.zip  gridy-master.zip
+mc cp --recursive s3/cguillo/diff_info diff_info
