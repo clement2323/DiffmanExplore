@@ -15,8 +15,8 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r warning=FALSE,message=FALSE,echo = FALSE}
-paquets <- c("data.table","btb","remotes","sf","igraph","Matrix","leaflet","dplyr","prettydoc","devtools","testthat","ggplot2")
-#install.packages(paquets)
+paquets <- c("data.table","prettydoc","devtools","testthat","ggplot2","dplyr","btb")
+install.packages(paquets)
 p <- lapply(paquets, function(p) suppressPackageStartupMessages(library(p, character.only = TRUE)))
 # remotes::install_github("https://github.com/InseeFrLab/diffman-1")
 ```
@@ -24,8 +24,31 @@ p <- lapply(paquets, function(p) suppressPackageStartupMessages(library(p, chara
 
 ## Installation du package difffman dans diffmanTab
 ```{r}
-devtools::install_github(repo = "InseeFrLab/diffman-1",ref = "diffmanTab")
+remove.packages("diffman")
+devtools::install_github(
+  repo = "InseeFrLab/diffman-1",
+  ref = "diffmanTab",
+  build_vignettes = TRUE,
+  force = TRUE
+  )
+library(diffman)
+vignette("diffman")
 ```
+
+```{r}
+source("fonctions_utiles.R")
+```
+###  Extraction donnes S3
+A copier coller directement dans le terminal (en une fois ça marche pour récupérer les données)
+
+mc cp s3/cguillo/commune_franceentiere_2021.dbf ext_data/commune_franceentiere_2021.dbf
+mc cp s3/cguillo/commune_franceentiere_2021.fix ext_data/commune_franceentiere_2021.fix
+mc cp s3/cguillo/commune_franceentiere_2021.prj ext_data/commune_franceentiere_2021.prj
+mc cp s3/cguillo/commune_franceentiere_2021.shp ext_data/commune_franceentiere_2021.shp
+mc cp s3/cguillo/commune_franceentiere_2021.shx ext_data/commune_franceentiere_2021.shx
+mc cp s3/cguillo/data_rp.rds ext_data/data_rp.rds
+mc cp s3/cguillo/gridy-master.zip  gridy-master.zip
+mc cp --recursive s3/cguillo/diff_info diff_info
 
 ## Code de travail, je pars des données RP
 ```{r}
@@ -36,9 +59,10 @@ data_rp <- data.table(readRDS("ext_data/data_rp.rds"))
 compo <- return_connected_components(data_rp)
 comp_to_nb_com <- compo[,.(nb_com = length(z1)),by ="id_comp"][rev(order(nb_com)),]
 comp_to_nb_com
+
 ```
 
-Ici je chiisis une composante connexe particulière
+Ici je choisis une composante connexe particulière
 ```{r}
 list_z1_compo <- compo[id_comp == 329]$z1
 input_dt <- data_rp[z1 %in% list_z1_compo]
@@ -57,76 +81,19 @@ area_z1_at_risk
 
 ```
 
-The return diff info function allows us to know ex&actly where the differencing issue occurs (which intersection square miunicipality here)
+The return diff info function allows us to know exactly where the differencing issue occurs (which intersection square miunicipality here)
 ```{r}
 diff_info <-return_diff_info(list_z1 = area_z1_at_risk,threshold = 11,input_dt = input_dt)
 diff_info
 ```
 Now we can represent the at risk area with the draw situation function
 First we have to create the geometry needed to represent the situation
-
-Some functions to prepare geometry (municipalities and grid geometries)
-```{r}
-install.packages("btb")
-
-get_centroid_carreau <- function(data, var_carreau){
-  
-  taille_carreau <- readr::parse_number(stringr::str_extract(data[[var_carreau]][1], "RES[0-9]*m"))
-  centroides <- data %>%
-    select(carreau = all_of(var_carreau)) %>%
-    mutate(
-      ll_coord_x = readr::parse_number(stringr::str_extract(carreau, "E[0-9]*$")),
-      ll_coord_y = readr::parse_number(stringr::str_extract(carreau, "N[0-9]*")),
-      centroid_x = ll_coord_x + taille_carreau/2,
-      centroid_y = ll_coord_y + taille_carreau/2,
-      crs = readr::parse_number(stringr::str_extract(carreau, "CRS[0-9]*"))
-    )
-  return(list(df = centroides, epsg=centroides$crs[1], taille=taille_carreau))
-}
-
-carreaux_to_polygon <- function(data, var_carreau){
-  
-  require(btb)
-  
-  centroides_l <- get_centroid_carreau(data, var_carreau)
-  
-  centroides_l$df %>%
-    select(carreau, x=centroid_x, y=centroid_y) %>%
-    btb::dfToGrid(sEPSG = centroides_l$epsg, iCellSize = centroides_l$taille)
-  
-}
-
-# pour préparer les géométries
-preparer_geom <- function(input_dt){
-  
-  dt <- copy(input_dt)
-  liste_carreau <- unique(dt$z2)
-
-  polygone_carreau <-
-  carreaux_to_polygon(data.frame(carreau = liste_carreau), var_carreau = "carreau") %>%
-  sf::st_transform(crs = 4326)
-
-  geom_z1 <- communes %>%
-    filter(code %in% unique(c(dt$z1))) %>%
-    select(code) %>%
-    rename(z1 = code)
-
-  geom_z2 <- polygone_carreau %>%
-    rename(z2 = carreau) %>%
-    select(-x,-y)
-
-  out <- list(geom_z1 = geom_z1, geom_z2 = geom_z2)
-  
-  return(out)
-}
-
-```  
-
 ```{r}
 situation_table <- input_dt[z1 %in% area_z1_at_risk]
 situation_table <- input_dt[z2 %in% situation_table$z2]
 situation_table <- clean_init_dt(situation_table)
 
+diffman:::clean_init_dt()
 l<- preparer_geom(situation_table)
 
 ```
@@ -291,16 +258,3 @@ install_github()
 - vignette CI etc.. faire un point ave +Julien
 - AU 30 VS diffman regarder les notes une fois que c'est fait
 - faire des statistiques de carreaux blanchis vs carreaux sous le seuil avec le scénario où on blanchit tous les carreaux au frontière (ou un seul ?) on casse le lien en faisant ça d'ailleurs réfléchir à ce que ça veut dire ?
-
-
-
-# à copier coller directement dans le terminal (en une fois ça marche pour récupérer les données)
-
-mc cp s3/cguillo/commune_franceentiere_2021.dbf ext_data/commune_franceentiere_2021.dbf
-mc cp s3/cguillo/commune_franceentiere_2021.fix ext_data/commune_franceentiere_2021.fix
-mc cp s3/cguillo/commune_franceentiere_2021.prj ext_data/commune_franceentiere_2021.prj
-mc cp s3/cguillo/commune_franceentiere_2021.shp ext_data/commune_franceentiere_2021.shp
-mc cp s3/cguillo/commune_franceentiere_2021.shx ext_data/commune_franceentiere_2021.shx
-mc cp s3/cguillo/data_rp.rds ext_data/data_rp.rds
-mc cp s3/cguillo/gridy-master.zip  gridy-master.zip
-mc cp --recursive s3/cguillo/diff_info diff_info
