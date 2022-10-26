@@ -249,18 +249,43 @@ Ici je vais brancher avec le travail de Julien pour observer les pbs de différe
 J'ai téléchargé le zip de griddy de gitlab.insee.fr pour avoir accès aux fonction créant les grilles superposées https://gitlab.insee.fr/outilsconfidentialite/gridy et je m'inspire ds codes de Julien dans https://gitlab.insee.fr/expertisesconfidentialite/carreaux_rp/-/blob/main/R/00_parametres.R
 ```{r}
 remove.packages("gridy")
-install.packages("gridy_0.1.1.tar.gz", repos = NULL)
-
+install.packages("gridy_0.1.1.tar.gz", repos = NULL) # j'ai compilé ce package zippé sur r studio en clonant au prealable gridy sur gitlab.insee en mode archive
 library(gridy)
+```
+
+Creation grille superposée avant application griddy
+```{r}
+
+input_dt <- clean_init_dt(data_rp)
+# Préparation des grilles superposées
+
+sh_carr_1km <- carreaux_to_polygon(carr[1:10,], var_carreau = "carreau")
+
+centroid_carr_1km <- get_centroid_carreau(carr, "carreau") %>% 
+  select(carreau_1km_orig = carreau, crs, x = centroid_x, y = centroid_y)
+
+str(centroid_carr_1km)
+
+centroid_carr_1km_dt <- data.table::as.data.table(centroid_carr_1km)
+
+mailles = 2^(0:6)*1000
+names(mailles) <- paste0(2^(0:6),"km")
+grilles_superposees_dt <- gridy::create_grids(centroid_carr_1km_dt, mailles = mailles, eurostat = TRUE)
 
 
-# je dezip le package puios je devtools build dans le Rproj
+carr %>% 
+  data.table::as.data.table() %>% 
+  merge(
+    grilles_superposees_dt,
+    by.x = "carreau", by.y = "carreau_1km_orig"
+  )
+
 
 ```
 
-
 ## TO DO :
-- régler les dernieres otes(notamment diff_info repertory fantome)
+- enlever le FR_unallocated de clean_init_data_diffman
+- devtools::check() régler les dernieres notes(notamment diff_info repertory fantome)
 - finalement on va proposer dans le package une stratégie de protection pour diffman hors gridy (ie hors multi level) et on verra ce qsu'on fait pour griddy
 - Algo de protection post diffman, function qui prend en entrée la table diff_info globale  et l'input_dt qui traite compo par compo 
   i) Version Bête : je choisis des carreaux interne  < 11 ménages si ily en a assez sum( carreaux blanchis >11 alors c'est bon )
