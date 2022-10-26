@@ -271,16 +271,30 @@ grilles_superposees_dt <-
   gridy::create_grids(centroid_carr_1km_dt, mailles = mailles, eurostat = TRUE)
 
 
-carr %>% 
-  data.table::as.data.table() %>% 
+input_dt_grid <- input_dt %>% 
   merge(
     grilles_superposees_dt,
-    by.x = "carreau", by.y = "carreau_1km_orig"
+    by.x = "z2", by.y = "carreau_1km_orig"
   )
+
+head(input_dt_grid)
+```
+
+On va travailler avec le niveau 2km
+```{r}
+
+input_dt_2km <- input_dt_grid %>% 
+    select(z1, id_carreau_niv_2km,nb_obs) %>% 
+    rename(z2 = id_carreau_niv_2km)
+
+
+# ET ON APPLIQUE DIFFMAN §
+      
+      
+
 
 
 ```
-
 ## TO DO :
 - enlever le FR_unallocated de clean_init_data_diffman
 - devtools::check() régler les dernieres notes(notamment diff_info repertory fantome)
