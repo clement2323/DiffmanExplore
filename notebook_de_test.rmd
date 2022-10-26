@@ -1,0 +1,301 @@
+---
+title: "Diffman tutorial"
+author: "Clément G"
+date: "`r Sys.Date()`"
+output:
+  prettydoc::html_pretty:
+    theme: cayman
+    highlight: github
+    toc: true
+    toc_depth: 5
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r warning=FALSE,message=FALSE,echo = FALSE}
+paquets <- c("data.table","btb","remotes","sf","igraph","Matrix","leaflet","dplyr","prettydoc","devtools","testthat","ggplot2")
+#install.packages(paquets)
+p <- lapply(paquets, function(p) suppressPackageStartupMessages(library(p, character.only = TRUE)))
+# remotes::install_github("https://github.com/InseeFrLab/diffman-1")
+```
+## Code de travail, je pars des données RP
+
+```{r}
+devtools::load_all()
+
+### Ce code sera amené à disparaitre, en fire une vignette ! ou bien un rmd !!!
+#### Test sur données réelles 
+communes <-sf::st_read("ext_data/commune_franceentiere_2021.shp")
+data_rp <- data.table(readRDS("ext_data/data_rp.rds"))
+compo <- return_connected_components(data_rp)
+comp_to_nb_com <- compo[,.(nb_com = length(z1)),by ="id_comp"][rev(order(nb_com)),]
+comp_to_nb_com
+```
+
+Ici je chiisis une composante connexe particulière
+```{r}
+list_z1_compo <- compo[id_comp == 329]$z1
+input_dt <- data_rp[z1 %in% list_z1_compo]
+
+l_area_z1_at_risk <- find_pbm_diff_tab(input_dt = input_dt,threshold = 11 )
+length(l_area_z1_at_risk)
+
+head(l_area_z1_at_risk,20)
+```
+
+299 union of elements of z1 at risk of differenciation here. let's look further one this risk area
+```{r}
+#lapply(l_area_z1_at_risk,length)
+area_z1_at_risk <- l_area_z1_at_risk[[10]]
+area_z1_at_risk
+
+```
+
+The return diff info function allows us to know ex&actly where the differencing issue occurs (which intersection square miunicipality here)
+```{r}
+diff_info <-return_diff_info(list_z1 = area_z1_at_risk,threshold = 11,input_dt = input_dt)
+diff_info
+```
+Now we can represent the at risk area with the draw situation function
+First we have to create the geometry needed to represent the situation
+
+Some functions to prepare geometry (municipalities and grid geometries)
+```{r}
+install.packages("btb")
+
+get_centroid_carreau <- function(data, var_carreau){
+  
+  taille_carreau <- readr::parse_number(stringr::str_extract(data[[var_carreau]][1], "RES[0-9]*m"))
+  centroides <- data %>%
+    select(carreau = all_of(var_carreau)) %>%
+    mutate(
+      ll_coord_x = readr::parse_number(stringr::str_extract(carreau, "E[0-9]*$")),
+      ll_coord_y = readr::parse_number(stringr::str_extract(carreau, "N[0-9]*")),
+      centroid_x = ll_coord_x + taille_carreau/2,
+      centroid_y = ll_coord_y + taille_carreau/2,
+      crs = readr::parse_number(stringr::str_extract(carreau, "CRS[0-9]*"))
+    )
+  return(list(df = centroides, epsg=centroides$crs[1], taille=taille_carreau))
+}
+
+carreaux_to_polygon <- function(data, var_carreau){
+  
+  require(btb)
+  
+  centroides_l <- get_centroid_carreau(data, var_carreau)
+  
+  centroides_l$df %>%
+    select(carreau, x=centroid_x, y=centroid_y) %>%
+    btb::dfToGrid(sEPSG = centroides_l$epsg, iCellSize = centroides_l$taille)
+  
+}
+
+# pour préparer les géométries
+preparer_geom <- function(input_dt){
+  
+  dt <- copy(input_dt)
+  liste_carreau <- unique(dt$z2)
+
+  polygone_carreau <-
+  carreaux_to_polygon(data.frame(carreau = liste_carreau), var_carreau = "carreau") %>%
+  sf::st_transform(crs = 4326)
+
+  geom_z1 <- communes %>%
+    filter(code %in% unique(c(dt$z1))) %>%
+    select(code) %>%
+    rename(z1 = code)
+
+  geom_z2 <- polygone_carreau %>%
+    rename(z2 = carreau) %>%
+    select(-x,-y)
+
+  out <- list(geom_z1 = geom_z1, geom_z2 = geom_z2)
+  
+  return(out)
+}
+
+```  
+
+```{r}
+situation_table <- input_dt[z1 %in% area_z1_at_risk]
+situation_table <- input_dt[z2 %in% situation_table$z2]
+situation_table <- clean_init_dt(situation_table)
+
+l<- preparer_geom(situation_table)
+
+```
+
+And then we can draw the situation on an interactive map
+```{r}
+draw_situation(
+  situation_table,
+  l$geom_z1,
+  l$geom_z2,
+  list_z1_to_color = area_z1_at_risk,
+  threshold = 11
+               )
+```
+
+Looking at the square at the intersection of the blue municapility and the orange one (those of the area at risk ) we recognize the square disoplaty by the return_diff_info function !
+Bioen noter qu'un problème de différenciation externe sera également un problème de différenciation interne pour le complémentaire dans le graph !
+
+```{r}
+diff_info
+```
+
+
+## The whole risk extraction process 
+```{r}
+## test
+
+# list_z1_compo <- compo[id_comp %in% seq(3:50),]$z1
+# input_dt <- data_rp[z1 %in% list_z1_compo]
+data_rp <- data.table(readRDS("ext_data/data_rp.rds"))
+input_dt <- data_rp
+
+s <- Sys.time()
+all_component_risk_extraction(
+  input_dt,
+  threshold = 11,
+  max_agregate_size = 15,
+  save_dir = "diff_info"
+  )
+e <- Sys.time()
+
+e-s
+```
+1 h de temps dont 30 min pour la grosse composante connexe
+
+## Lecture des résultats
+
+```{r}
+
+input_dt <- data_rp
+global_diff_info <- read_diff_info("diff_info")
+
+head(global_diff_info)
+
+```
+
+### Etude des composantes connexes
+A comparer avec le nombre de communes dans chaque compo
+```{r}
+comp_to_n_area <- global_diff_info[,.(n_at_risk_area= length(unique(checked_area))),by ="id_comp"][rev(order(n_at_risk_area))]
+comp_to_nb_com[,id_comp := as.character(id_comp)]
+
+comp_info <- merge(comp_to_n_area,comp_to_nb_com,by ="id_comp")
+comp_info[,ratio_risk_nb_com:= n_at_risk_area/nb_com]
+
+library(ggplot2)
+
+comp_info %>% 
+  ggplot()+
+  geom_point(aes(y= ratio_risk_nb_com, x = nb_com))
+
+```
+
+### Etude du max
+```{r}
+id_comp_max <- comp_info[which.max(comp_info$ratio_risk_nb_com)]$id_comp
+list_z1 <- compo[id_comp == id_comp_max]$z1
+input_dt <- data_rp[z1%in% list_z1]
+situation_table <- clean_init_dt(dt)
+
+l<- preparer_geom(situation_table)
+
+draw_situation(
+  situation_table,
+  geom_z1,
+  geom_z2,
+  threshold = 11
+               )
+
+```
+On voit pas grand chose si ce n'est que la grosse composante n'a pas tant de zones à risque ce qui doit être proche de l'idée de morcellement de la zone elle doit tenir sur quelques points faibles (peu d'intersection fragiles. La compos&ante ci-dessus a plein de lien faible d'oùù le nombre de zones à risque élevé en rapport à la taille de la composante -> forme d'indice d'urbanité.
+
+### N checked area 
+```{r}
+global_diff_info$checked_area %>% unique() %>% length()
+```
+21272 areas à protéger dans 1902 composantes.
+
+### N carreaux
+
+i) à risque
+```{r}
+carreau_a_risque <- global_diff_info$z2 %>% unique()
+length(carreau_a_risque)
+```
+ii) comparaison avec nb carreaux sous le seuil
+```{r}
+carreau_to_nb_obs <- data_rp[ ,.(nb_obs = sum(nb_obs)),by = (z2)]
+carreau_au_dessus_du_seuil <- carreau_to_nb_obs[nb_obs >= 11]$z2
+
+100*sum(carreau_a_risque %in% carreau_au_dessus_du_seuil)/length(carreau_a_risque)
+
+```
+
+7932 carreaux "à risque", 50 % sont au dessus du seuil des 11 ménages
+
+
+## Petit laius sur la stratégie de blanchiment pour le RP
+
+diffman va en fait extraire des intesrsections carreaux X commlunes à risque. Mais blanchir systématiquement les carreeaux impliqués dans ces intersections n'apportera pas grand chose car la différenciation interne est toujours possible même si le carreau (ou les) chevauchant est blanchi (à méditer). En fait ce qu'il faut c'est s'assurer que l'attaquant ne puisse pas faire de différenciation du tout sur la zone extraite. Comme on ne touchera jamais aux totaux communaux il s'agit en fait de s'assurer que l'attaquant nbe soit pas en mesure de reconstruire le total des carreaux totalement inclus dans la commune  (dans le cas d'une différzenciation interner ou le total des carreaux totalement inclus ou partiellement (zone de carreaux recouvrante). Pour ce faire on veut plutôt blanchir des carreaux intérieurs à la commune. et il faut aussi s'assurer que  l'agregation ne soit pas retrouvable. C'est comme si on forcait des agregations blanchies dans griddy.. PAs simple..
+
+
+Idée 1 :
+
+Gérer la différenciation du niveau le plus grossier au niveau le plus fin (ou inversement en comprenant bien le passage d'un niveau à un autre). Ce passage peut peut être s'interpréter en observant les liens entre composantes connexes niveau fin VS niveau grossier ?
+Observer les différentes composantes connexes dans ce cas. Je pense qu'on tend vers la fusion.
+Sinon gérer chaque niveau indépendemment. Puis récolter les masques et relier les niveaux à la manière de griddy. si un gros est blanchi il me faut au moins un autre blanchi plus bas?
+
+
+Gérer ls pbs de différenciation indépendemment, peut etre qu'il y en a moins sur les niveaux grossiers. Proposer une méthode de blanchiment pour le niveau fin. Faire une analyse composante par composante
+
+Fonction pour blanchir des carreaux au pif inf à 11 lmenages en esperant atteindre le seuil de 11
+Amelioration pour blanchir des carreaux internes à la zone très influents
+Amélioration de la représentationa vec les carreaux interne et les carreaux blanchis 
+Puis forme d'union des masques
+
+## Application de diffman sur les différents niveaux de la grilles superposée
+Ici je vais brancher avec le travail de Julien pour observer les pbs de différenciations sur des grilles plus grosses. Même si on arrive à protéger un niveau de la différenciation comment est-on sûr que le niveau le plus fin ne donne pas d'info, sur le niveau le plus grossier ?
+
+J'ai téléchargé le zip de griddy de gitlab.insee.fr pour avoir accès aux fonction créant les grilles superposées https://gitlab.insee.fr/outilsconfidentialite/gridy et je m'inspire ds codes de Julien dans https://gitlab.insee.fr/expertisesconfidentialite/carreaux_rp/-/blob/main/R/00_parametres.R
+```{r}
+
+install_github()
+?install_github
+
+
+devtools::install_github("InseeFrLab/diffman-1",
+           ref = "diffmanTab", subdir = "pkg")
+```
+
+## TO DO :
+- finalement on va proposer dans le package une stratégie de protection pourdiffman hors gridy (ie hors multi level) et on verra ce qsu'on fait pour griddy
+- Algo de protection post diffman, function qui prend en entrée la table diff_info globale  et l'input_dt qui traite compo par compo 
+  i) Version Bête : je choisis des carreaux interne  < 11 ménages si ily en a assez sum( carreaux blanchis >11 alors c'est bon )
+  ii) je cherche des carreaux influents (déduits de l'influence de la commune dans le graph) et les blanchis comme ça je suissûr qu'ils seront déjà utiles pour une autre zone-> découper le taf par composante ?
+- parallelisation moins rigide que foreach ?
+- blanchir carreaux internes aux zones à risque en sortie de diff_info
+- rajouter les carreaux interne en option dans draw situation, internal z2 area param  = TRUE
+- commencer déjà par gérer en intra vérifier que dans chaque zone à risque il existe au moins un carreau totalement inclus blanchis et que la somme des carreaux blanchis faiaut au moins 11
+- puis enfin penser à la remontée et comment gérer ça.
+- pour griddy il faut pas gérer les carreaux blanchis par diffman en voulant les protéger mais juste s'en servir et ne pas chercher d'autres cases à blanchir si il en existe déjà une, c'est une sorte de statut non sensible des cases.
+- batterie de tests !
+- vignette CI etc.. faire un point ave +Julien
+- AU 30 VS diffman regarder les notes une fois que c'est fait
+- faire des statistiques de carreaux blanchis vs carreaux sous le seuil avec le scénario où on blanchit tous les carreaux au frontière (ou un seul ?) on casse le lien en faisant ça d'ailleurs réfléchir à ce que ça veut dire ?
+
+
+
+# à copier coller directement dans le terminal (en une fois ça marche pour récupérer les données)
+
+mc cp s3/cguillo/commune_franceentiere_2021.dbf ext_data/commune_franceentiere_2021.dbf
+mc cp s3/cguillo/commune_franceentiere_2021.fix ext_data/commune_franceentiere_2021.fix
+mc cp s3/cguillo/commune_franceentiere_2021.prj ext_data/commune_franceentiere_2021.prj
+mc cp s3/cguillo/commune_franceentiere_2021.shp ext_data/commune_franceentiere_2021.shp
+mc cp s3/cguillo/commune_franceentiere_2021.shx ext_data/commune_franceentiere_2021.shx
+mc cp s3/cguillo/data_rp.rds ext_data/data_rp.rds
