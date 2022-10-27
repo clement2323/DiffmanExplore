@@ -52,13 +52,25 @@ preparer_geom <- function(input_dt){
 
 
 search_diff_pb_one_resolution <- function(resolution,input_dt_grid){
+  # resolution <- "id_carreau_niv_64km"
+  # resolution <- "id_carreau_niv_32km"
+  # resolution <- "id_carreau_niv_16km"
+  # resolution <- "id_carreau_niv_8km"
+  # resolution <- "id_carreau_niv_4km"
+  # resolution <- "id_carreau_niv_2km"
+  input_dt_grid <- copy(input_dt_grid)
   
-  input_dt_resolution <- input_dt_grid %>% 
-    select(z1, all_of(resolution),nb_obs) %>% 
-    rename(z2 = all_of(resolution))
+  input_dt_resolution <- input_dt_grid[,c("z1",resolution,"nb_obs"),with = FALSE]
+  colnames(input_dt_resolution)[colnames(input_dt_resolution) == resolution]<- "z2"
+  
   
   input_dt_resolution <- input_dt_resolution[,.(nb_obs=sum(nb_obs)),by =.(z1,z2)]
   
+  # j'échange les rôles de z1 et z2 si il y a un petit nombre de z2
+  if(length(unique(input_dt_resolution$z1))>length(unique(input_dt_resolution$z2))){
+    input_dt_resolution[,z3:=z2];input_dt_resolution[,z2:=z1];input_dt_resolution[,`:=`(z1=z3,z3=NULL)]
+  }
+    
   # controle simple, nombre d'ibnter carreaux x communes avec - de 11 menages
   
   if(nrow(input_dt_resolution[nb_obs < 11]) == 0) stop("Aucune intersection en dessous du seuil")
@@ -72,3 +84,4 @@ search_diff_pb_one_resolution <- function(resolution,input_dt_grid){
     save_dir = paste0("diff_info_",save_name)
   )
 }
+# readRDS("diff_info_16km/res_1.RDS")
