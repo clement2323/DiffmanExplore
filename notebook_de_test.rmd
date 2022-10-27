@@ -407,8 +407,9 @@ build_complete_internal_table <- function(comp_diff_info,list_z1_compo){
 # diffman ne sort pas touts les types de differenciation par exemple la commune 26267 ne sort pas mais son complémentaire oui donc pas grave..
 # fonction proteger compo qui balai toutes les cheqck area blanchi de aprt et autres de la ckeked area (dans son complémentaire aussi) on blanchit jusqu'à ce que la différence dépasse 11
 
-protect_component <- function(num_comp,global_diff_info){ 
+protect_component <- function(num_comp,global_diff_info,data_rp){ 
   #num_comp <- 512
+  data_rp <- copy(data_rp)
   list_z1_compo<- compo$z1[compo$id_comp == num_comp]
   input_dt <- clean_init_dt(data_rp[z1 %in% list_z1_compo])
   
@@ -488,7 +489,7 @@ Application et image !!!
 # num_comp <- 329
 num_comp <- 512
 
-z2_to_tag <- protect_component(id_comp,global_diff_info)
+z2_to_tag <- protect_component(num_comp,global_diff_info,data_rp)
 list_z1 <- compo[id_comp == num_comp]$z1
 
 input_dt <- clean_init_dt(data_rp[z1 %in% list_z1])
@@ -501,6 +502,10 @@ draw_situation(
   threshold = 11,
   list_z2_to_color = z2_to_tag[tag == TRUE]$z2
                ) 
+
+# sum(z2_to_tag[tag == TRUE]$z2 %in% data_rp$z2)
+# sum(input_dt$z2 %in% z2_to_tag[tag == TRUE]$z2 )
+# sum(l$geom_z2 %in% z2_to_tag[tag == TRUE]$z2 )
 ```
 
 
