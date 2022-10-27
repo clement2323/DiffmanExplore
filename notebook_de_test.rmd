@@ -381,13 +381,14 @@ Donc je vais reconstruire ces zone si elles n 'existent pas d'où la fonction
 build_complete_internal_table <- function(comp_diff_info,list_z1_compo){
   
   external_area <- unique(comp_diff_info[type_diff == "external"]$checked_area)
+  internal_area <- unique(comp_diff_info[type_diff == "internal"]$checked_area)
   
   build_compl <- function(checked_area,list_z1_compo){
     paste0(setdiff(list_z1_compo,unlist(strsplit(checked_area,"-"))),collapse="-")
   }
 
   internal_area_expected <- sapply(external_area,build_compl,list_z1_compo = list_z1_compo)
-
+  
   missing_internal_area <- setdiff(internal_area_expected,internal_area)
   missing_internal_area <- internal_area_expected[internal_area_expected %in% missing_internal_area]
 
@@ -399,15 +400,16 @@ build_complete_internal_table <- function(comp_diff_info,list_z1_compo){
   
   return(complete_internal_diff_info)
 }
+
 ```
 
 ```{r}
 # diffman ne sort pas touts les types de differenciation par exemple la commune 26267 ne sort pas mais son complémentaire oui donc pas grave..
 # fonction proteger compo qui balai toutes les cheqck area blanchi de aprt et autres de la ckeked area (dans son complémentaire aussi) on blanchit jusqu'à ce que la différence dépasse 11
 
-protect_component <- function(id_comp,global_diff_info){ 
-  #id_comp <- 329
-  list_z1_compo<- compo$z1[compo$id_comp == id_comp]
+protect_component <- function(num_comp,global_diff_info){ 
+  #num_comp <- 136
+  list_z1_compo<- compo$z1[compo$id_comp == num_comp]
   input_dt <- clean_init_dt(data_rp[z1 %in% list_z1_compo])
   
   z2_to_tag <- data.table(z2  = unique(input_dt$z2), tag  = FALSE)
@@ -423,11 +425,12 @@ protect_component <- function(id_comp,global_diff_info){
   
   l <- split(complete_internal_diff_info,complete_internal_diff_info$checked_area)
   
+  
   for(area_issue in l){
     
     # dégager les carreaux déjà blanchis dans chaque zone et 
     print(unique(area_issue$checked_area))
-    #area_issue <- l[[1]]
+    #area_issue <- l[[91]]
     nb_obs_at_risk <- sum(area_issue$nb_obs)
     nb_to_add <- threshold - nb_obs_at_risk
     
@@ -482,7 +485,7 @@ Application et image !!!
 
 #comp_to_nb_com
 num_comp <- 136
-# id_comp <- 329
+# num_comp <- 329
 
 z2_to_tag <- protect_component(id_comp,global_diff_info)
 list_z1 <- compo[id_comp == num_comp]$z1
@@ -498,6 +501,13 @@ draw_situation(
   list_z2_to_color = z2_to_tag[tag == TRUE]$z2
                ) 
 ```
+
+
+# Poyur la suite
+
+- applliquer la fonction à l'ensemble des composantes connexes puis à tous les niveaux
+- compter le nombre de carreaux blanchis par la méthode / le n carreaux < 11 menages
+- logique de jonction multi level ?
 
 ## TO DO :
 
