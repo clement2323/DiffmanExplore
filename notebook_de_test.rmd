@@ -24,7 +24,7 @@ p <- lapply(paquets, function(p) suppressPackageStartupMessages(library(p, chara
 
 ## Installation du package difffman dans diffmanTab
 ```{r}
-remove.packages("diffman")
+remove.packages("diffman")  
 devtools::install_github(
   repo = "InseeFrLab/diffman-1",
   ref = "diffmanTab",# la branche
@@ -47,8 +47,8 @@ mc cp s3/cguillo/commune_franceentiere_2021.prj ext_data/commune_franceentiere_2
 mc cp s3/cguillo/commune_franceentiere_2021.shp ext_data/commune_franceentiere_2021.shp
 mc cp s3/cguillo/commune_franceentiere_2021.shx ext_data/commune_franceentiere_2021.shx
 mc cp s3/cguillo/data_rp.rds ext_data/data_rp.rds
-mc cp s3/cguillo/gridy-master.zip  gridy-master.zip
 mc cp --recursive s3/cguillo/diff_info/ diff_info
+mc cp --recursive s3/cguillo/diff_info_2km/ diff_info_2km
 
 ## Code de travail, je pars des données RP
 ```{r}
@@ -95,7 +95,7 @@ situation_table <- clean_init_dt(situation_table)
 
 l<- preparer_geom(situation_table)
 
-draw_situation(
+diffman::draw_situation(
   situation_table,
   l$geom_z1,
   l$geom_z2,
@@ -355,90 +355,152 @@ draw_situation(
 
 ```
 
+
+
+Premier algo : Pour chaque zone à risque on blanchit uncarreau dans la zone interne et externe en ne surblanchissant pas et en commencant par les carreaux les plus petits <11 logements
+
+# Ok je ne vais traiter que les zones checkees pour risque interne.
+A chaque fois je blanchis suffisamment dans la zone et dans son complémentazie dans la composante en me reservant la possibilité se brouiller egalement les intersections pour la partie externe !
+
+
+ pour l'interne on peut pas blanchir le carreau intersectant mais pour l'externe on pourrait..
+ étudier la possibilité de blanchir un carreau dans la zone interne et le carreau intersectant
+ nécessiterait de retrouver le bug dans diffman..
+
+ ok strategy , la recherche ne sort pas nécessairement tout en interne et en externe mais a priori toutest les intersections à problème ressortent :
+ pour une intersetion à probleme garder une seule ligne. ET blanchir un carreau dans la zone checked et dans le complémentaire de la zone checked. dans la composante ->
+
+Toutes les intersections à risque sortent bien de diffman mais pas forcément sous forme interne et externe 
+Je n'ai besoin de traiter que les diffs interne (mais toute)
+Donc je vais reconstruire ces zone si elles n 'existent pas d'où la fonction
+
+```{r}
+# ok pour toutes les external je regarde si l'internal est là
+
+
+build_complete_internal_table <- function(comp_diff_info,list_z1_compo){
+  
+  external_area <- unique(comp_diff_info[type_diff == "external"]$checked_area)
+  
+  build_compl <- function(checked_area,list_z1_compo){
+    paste0(setdiff(list_z1_compo,unlist(strsplit(checked_area,"-"))),collapse="-")
+  }
+
+  internal_area_expected <- sapply(external_area,build_compl,list_z1_compo = list_z1_compo)
+
+  missing_internal_area <- setdiff(internal_area_expected,internal_area)
+  missing_internal_area <- internal_area_expected[internal_area_expected %in% missing_internal_area]
+
+
+  external_to_transform <- comp_diff_info[type_diff == "external" & checked_area %in% names(missing_internal_area) ]
+  external_to_transform[, `:=`(type_diff = "internal", checked_area= missing_internal_area[checked_area])]
+
+  complete_internal_diff_info <-rbind(comp_diff_info[type_diff == "internal"],external_to_transform)
+  
+  return(complete_internal_diff_info)
+}
+```
+
 ```{r}
 # diffman ne sort pas touts les types de differenciation par exemple la commune 26267 ne sort pas mais son complémentaire oui donc pas grave..
-
-
 # fonction proteger compo qui balai toutes les cheqck area blanchi de aprt et autres de la ckeked area (dans son complémentaire aussi) on blanchit jusqu'à ce que la différence dépasse 11
 
-num_comp <- 601
-list_z1 <- compo$z1[compo$id_comp == num_comp]
-input_dt <- clean_init_dt(data_rp[z1 %in% list_z1])
-
-
-
-
-# diffman, que les carreaux internes aux zones,il fautéviter les carreaux intersectant, les blanchir ne servirait pas à protéger les autres zones -> préférer les carreaux internes
-fully_included_z2 <- isolate_intersection(input_dt)$fully_included_z2
-list_z2<-unique(fully_included_z2$z2)
-z2_to_tag <- data.table(z2  = list_z2, tag  = FALSE)
-
-comp_diff_info <- global_diff_info[id_comp == num_comp]
-
-l <- split(comp_diff_info,comp_diff_info$checked_area)
-
-for(area_issue in l){
+protect_component <- function(id_comp,global_diff_info){ 
+  #id_comp <- 136
+  list_z1_compo<- compo$z1[compo$id_comp == id_comp]
+  input_dt <- clean_init_dt(data_rp[z1 %in% list_z1_compo])
   
-  # dégager les carreaux déjà blanchis dans chaque zone et 
-  print(unique(area_issue$checked_area))
-  #area_issue <- l[[2]]
-  nb_obs_at_risk <- sum(area_issue$nb_obs)
-  nb_to_add <- threshold - nb_obs_at_risk
+  z2_to_tag <- data.table(z2  = unique(input_dt$z2), tag  = FALSE)
+  fully_included_z2<- diffman:::prepare_data(input_dt)$fully_included_z2
   
-  # en amont récupérer 
-  z1_in_area <-unlist(strsplit(unique(area_issue$checked_area),"-"))
-  z1_out_area <- setdiff(list_z1,z1_in_area)  
+  z2_to_tag$full_incl <- z2_to_tag$z2 %in% unique(fully_included_z2$z2)
   
-  z2_full_incl <- merge(fully_included_z2[z1 %in% z1_in_area],z2_to_tag,by ="z2",nomatch = 0L)[order(nb_obs)] # la zone a risque
-  z2_full_excl <- merge(fully_included_z2[!z1 %in% z1_in_area],z2_to_tag,by ="z2",nomatch = 0L)[order(nb_obs)] # le complementazire dans la composante
+  comp_diff_info <- global_diff_info[id_comp == num_comp]
   
-  # je réadapte le nb en fonction de ce qui a été blanchit déjà et je supprimeai les lignes dans la table après
-  nb_to_add_full_incl <- nb_to_add - sum(z2_full_incl$nb_obs[z2_full_incl$tag])
-  nb_to_add_full_excl <- nb_to_add - sum(z2_full_excl$nb_obs[z2_full_excl$tag])
+  complete_internal_diff_info <- build_complete_internal_table(comp_diff_info,list_z1_compo)
   
-  if(nb_to_add_full_incl >0){
-    z2_full_incl <- z2_full_incl[tag == FALSE]
-    z2_full_incl[,cum_nb_obs := cumsum(nb_obs)]
-    z2_full_incl[,higher := cum_nb_obs>nb_to_add_full_incl]
+  #### Et voici l'algorithme !!
+  
+  l <- split(complete_internal_diff_info,complete_internal_diff_info$checked_area)
+  
+  for(area_issue in l){
     
-    ind_z2 <- 1:first(which(z2_full_incl$higher))
-    z2_to_mask_incl <- z2_full_incl$z2[ind_z2]
+    # dégager les carreaux déjà blanchis dans chaque zone et 
+    print(unique(area_issue$checked_area))
+    #area_issue <- l[[1]]
+    nb_obs_at_risk <- sum(area_issue$nb_obs)
+    nb_to_add <- threshold - nb_obs_at_risk
+    
+    # en amont récupérer 
+    z1_in_area <-unlist(strsplit(unique(area_issue$checked_area),"-"))
+    z1_out_area <- setdiff(list_z1,z1_in_area)  
+    
+    #On se limite au blanchiment des full_incl quand on regarde la differenciation interne
+    z2_full_incl <- merge(input_dt[z1 %in% z1_in_area],z2_to_tag[full_incl == TRUE] ,by ="z2",nomatch = 0L)[order(nb_obs)] # la zone a risque
+    
+    # On ne se limite à rien pour la diff externe
+    z2_full_excl <- merge(input_dt[!z1 %in% z1_in_area],z2_to_tag,by ="z2",nomatch = 0L)[order(nb_obs)] # la zone a risque
+    
+    # je réadapte le nb en fonction de ce qui a été blanchit déjà et je supprimeai les lignes dans la table après
+    nb_to_add_full_incl <- nb_to_add - sum(z2_full_incl$nb_obs[z2_full_incl$tag])
+    nb_to_add_full_excl <- nb_to_add - sum(z2_full_excl$nb_obs[z2_full_excl$tag])
+    
+    if(nb_to_add_full_incl >0){
+      z2_full_incl <- z2_full_incl[tag == FALSE]
+      z2_full_incl[,cum_nb_obs := cumsum(nb_obs)]
+      z2_full_incl[,higher := cum_nb_obs>nb_to_add_full_incl]
+      
+      ind_z2 <- 1:first(which(z2_full_incl$higher))
+      z2_to_mask_incl <- z2_full_incl$z2[ind_z2]
+    }
+    
+    if(nb_to_add_full_excl >0){
+      
+      z2_full_excl <- z2_full_excl[tag == FALSE]
+      z2_full_excl[,cum_nb_obs := cumsum(nb_obs)]
+      z2_full_excl[,higher := cum_nb_obs>nb_to_add_full_excl]
+      
+      ind_z2 <- 1:first(which(z2_full_excl$higher)) 
+      # ne pas oublier que les inférieurs au seuil seront nécessairement blanchis il faut juste en ajouter si ils ne suffisent pas (si il n'yen a pas  1 seul carreau suffira)
+      z2_to_mask_excl <- z2_full_excl$z2[ind_z2]
+    }
+    # carreaux dans la zone (il faut blanchir jusqu'à 11-nbobs atrisk)
+    
+    z2_to_tag[z2 %in% c(z2_to_mask_incl,z2_to_mask_excl)]$tag <- TRUE
   }
-  
-   if(nb_to_add_full_excl >0){
-    
-    z2_full_excl <- z2_full_excl[tag == FALSE]
-    z2_full_excl[,cum_nb_obs := cumsum(nb_obs)]
-    z2_full_excl[,higher := cum_nb_obs>nb_to_add_full_excl]
-    
-    ind_z2 <- 1:first(which(z2_full_excl$higher)) 
-    # ne pas oublier que les inférieurs au seuil seront nécessairement blanchis il faut juste en ajouter si ils ne suffisent pas (si il n'yen a pas  1 seul carreau suffira)
-    z2_to_mask_excl <- z2_full_excl$z2[ind_z2]
-  }
-   # carreaux dans la zone (il faut blanchir jusqu'à 11-nbobs atrisk)
-  
-  z2_to_tag[z2 %in% c(z2_to_mask_incl,z2_to_mask_excl)]$tag <- TRUE
-  
+  return(z2_to_tag)
 }
 
 
-# pour l'interne on peut pas blanchir le carreau intersectant mais pour l'externe on pourrait..
-# étudier la possibilité de blanchir un carreau dans la zone interne et le carreau intersectant
-# nécessiterait de retrouver le bug dans diffman..
-
-# ok strategy , la recherche ne sort pas nécessairement tout en interne et en externe mais a priori toutest les intersections à problème ressortent :
-# pour une intersetion à probleme garder une seule ligne. ET blanchir un carreau dans la zone checked et dans le complémentaire de la zone checked. dans la composante -> en images :
-
-
-
 ```
-```{r}
-z2_to_tag
 
+
+Application et image !!!
+
+
+```{r}
+
+#comp_to_nb_com
+z2_to_tag <- protect_component(136,global_diff_info)
+list_z1 <- compo[id_comp == 136]$z1
+
+input_dt <- clean_init_dt(data_rp[z1 %in% list_z1])
+l<- preparer_geom(input_dt)
+
+draw_situation(
+  input_dt,
+  l$geom_z1,
+  l$geom_z2,
+  threshold = 11,
+  list_z2_to_color = z2_to_tag[tag == TRUE]$z2
+               )
 ```
 
 ## TO DO :
-- mettre la population communale dans les communes,  coloration des carreaux en blanchis
+
+- à réfléchir : faire les grilles superposées sans diffuser les nive    aux intermédiaires pour pouvoir appliquer diffman tranquillement ?
+- intégrer la fionction diff pbm dans diffman ?
+- mettre la population communale dans les communes,
 - enlever le FR_unallocated de clean_init_data_diffman
 - devtools::check() régler les dernieres notes(notamment diff_info repertory fantome)
 - finalement on va proposer dans le package une stratégie de protection pour diffman hors gridy (ie hors multi level) et on verra ce qsu'on fait pour griddy
