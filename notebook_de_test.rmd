@@ -406,7 +406,7 @@ build_complete_internal_table <- function(comp_diff_info,list_z1_compo){
 # fonction proteger compo qui balai toutes les cheqck area blanchi de aprt et autres de la ckeked area (dans son complémentaire aussi) on blanchit jusqu'à ce que la différence dépasse 11
 
 protect_component <- function(id_comp,global_diff_info){ 
-  #id_comp <- 136
+  #id_comp <- 329
   list_z1_compo<- compo$z1[compo$id_comp == id_comp]
   input_dt <- clean_init_dt(data_rp[z1 %in% list_z1_compo])
   
@@ -481,8 +481,11 @@ Application et image !!!
 ```{r}
 
 #comp_to_nb_com
-z2_to_tag <- protect_component(136,global_diff_info)
-list_z1 <- compo[id_comp == 136]$z1
+num_comp <- 136
+# id_comp <- 329
+
+z2_to_tag <- protect_component(id_comp,global_diff_info)
+list_z1 <- compo[id_comp == num_comp]$z1
 
 input_dt <- clean_init_dt(data_rp[z1 %in% list_z1])
 l<- preparer_geom(input_dt)
@@ -493,7 +496,7 @@ draw_situation(
   l$geom_z2,
   threshold = 11,
   list_z2_to_color = z2_to_tag[tag == TRUE]$z2
-               )
+               ) 
 ```
 
 ## TO DO :
