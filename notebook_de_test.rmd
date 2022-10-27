@@ -259,14 +259,16 @@ Creation grille superposée avant application griddy
 input_dt <- clean_init_dt(data_rp)
 # Préparation des grilles superposées
 # sh_carr_1km <- carreaux_to_polygon(input_dt[1:10,], var_carreau = "z2")
+table_carreau <- input_dt %>% select(z2) %>% unique()
 
-centroid_carr_1km <- get_centroid_carreau(input_dt, "z2")$df %>% 
+centroid_carr_1km <- get_centroid_carreau(table_carreau, "z2")$df %>% 
   select(carreau_1km_orig = carreau, crs, x = centroid_x, y = centroid_y)
 
 centroid_carr_1km_dt <- data.table::as.data.table(centroid_carr_1km)
 
 mailles = 2^(0:6)*1000
 names(mailles) <- paste0(2^(0:6),"km")
+
 grilles_superposees_dt <- 
   gridy::create_grids(centroid_carr_1km_dt, mailles = mailles, eurostat = TRUE)
 
@@ -274,7 +276,7 @@ grilles_superposees_dt <-
 input_dt_grid <- input_dt %>% 
   merge(
     grilles_superposees_dt,
-    by.x = "z2", by.y = "carreau_1km_orig"
+    by.x = "z2", by.y = "carreau_1km_orig",
   )
 
 head(input_dt_grid)
@@ -283,15 +285,24 @@ head(input_dt_grid)
 On va travailler avec le niveau 2km
 ```{r}
 
-input_dt_2km <- input_dt_grid %>% 
-    select(z1, id_carreau_niv_2km,nb_obs) %>% 
-    rename(z2 = id_carreau_niv_2km)
+
+resolutions <- 
+  c("id_carreau_niv_64km","id_carreau_niv_32km",
+    "id_carreau_niv_16km","id_carreau_niv_8km",
+    "id_carreau_niv_4km","id_carreau_niv_2km",
+    "id_carreau_niv_1km") 
 
 
-# ET ON APPLIQUE DIFFMAN §
-      
-      
+search_diff_pb_one_resolution(resolution,input_dt_grid)
+resolution <- resolutions[1]
 
+```
+
+
+
+```{r}      
+
+global_diff_info_2km <- read_diff_info("diff_info_2km")
 
 
 ```

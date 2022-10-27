@@ -49,3 +49,26 @@ preparer_geom <- function(input_dt){
   
   return(out)
 }
+
+
+search_diff_pb_one_resolution <- function(resolution,input_dt_grid){
+  
+  input_dt_resolution <- input_dt_grid %>% 
+    select(z1, all_of(resolution),nb_obs) %>% 
+    rename(z2 = all_of(resolution))
+  
+  input_dt_resolution <- input_dt_resolution[,.(nb_obs=sum(nb_obs)),by =.(z1,z2)]
+  
+  # controle simple, nombre d'ibnter carreaux x communes avec - de 11 menages
+  
+  if(nrow(input_dt_resolution[nb_obs < 11]) == 0) stop("Aucune intersection en dessous du seuil")
+  
+  save_name <- unlist(strsplit(resolution,"_"))[4]
+  
+  all_component_risk_extraction(
+    input_dt_resolution,
+    threshold = 11,
+    max_agregate_size = 15,
+    save_dir = paste0("diff_info_",save_name)
+  )
+}
