@@ -487,7 +487,7 @@ Application et image !!!
 #comp_to_nb_com
 #num_comp <- 136
 # num_comp <- 329
-num_comp <- 512
+num_comp <- 992
 
 z2_to_tag <- protect_component(num_comp,global_diff_info,data_rp)
 list_z1 <- compo[id_comp == num_comp]$z1
@@ -500,7 +500,7 @@ draw_situation(
   l$geom_z1,
   l$geom_z2,
   threshold = 11,
-  list_z2_to_color = z2_to_tag[tag == TRUE]$z2
+  list_z2_to_color = z2_to_tag[tag == TRUE]$z2  
                ) 
 
 # sum(z2_to_tag[tag == TRUE]$z2 %in% data_rp$z2)
@@ -515,7 +515,7 @@ draw_situation(
 - compter le nombre de carreaux blanchis par la méthode / le n carreaux < 11 menages
 - logique de jonction multi level ?
 - ratiop carreaux à risque carreaux > seuil blanchis?
-
+- ajouter une coloration spécifique pour les carreaux blanchis au dessus du seuil !!!
 ## TO DO :
 
 - à réfléchir : faire les grilles superposées sans diffuser les nive    aux intermédiaires pour pouvoir appliquer diffman tranquillement ?
