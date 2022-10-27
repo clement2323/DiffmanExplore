@@ -27,7 +27,7 @@ p <- lapply(paquets, function(p) suppressPackageStartupMessages(library(p, chara
 remove.packages("diffman")
 devtools::install_github(
   repo = "InseeFrLab/diffman-1",
-  ref = "diffmanTab",
+  ref = "diffmanTab",# la branche
   build_vignettes = TRUE,
   force = TRUE
   )
@@ -249,6 +249,7 @@ Ici je vais brancher avec le travail de Julien pour observer les pbs de différe
 J'ai téléchargé le zip de griddy de gitlab.insee.fr pour avoir accès aux fonction créant les grilles superposées https://gitlab.insee.fr/outilsconfidentialite/gridy et je m'inspire ds codes de Julien dans https://gitlab.insee.fr/expertisesconfidentialite/carreaux_rp/-/blob/main/R/00_parametres.R
 ```{r}
 remove.packages("gridy")
+install.packages("fasterize")
 install.packages("gridy_0.1.1.tar.gz", repos = NULL) # j'ai compilé ce package zippé sur r studio en clonant au prealable gridy sur gitlab.insee en mode archive
 library(gridy)
 ```
@@ -288,6 +289,8 @@ install.packages("doParallel")
 install.packages("foreach")
 library(doParallel)
 library(dplyr)
+
+# Discuter avec Juline du passage en mode "jobs"
 resolutions <- 
   c("id_carreau_niv_64km","id_carreau_niv_32km",
     "id_carreau_niv_16km","id_carreau_niv_8km",
@@ -302,6 +305,8 @@ l_risk_compo <- foreach(resolution = resolutions,
                         .packages=c('data.table','diffman')) %dopar% search_diff_pb_one_resolution(resolution,input_dt_grid)
 e <- Sys.time()
 
+# search_diff_pb_one_resolution("id_carreau_niv_2km",input_dt_grid)
+
 e-s
 ```
 
@@ -309,11 +314,131 @@ e-s
 
 ```{r}      
 
-global_diff_info_2km <- read_diff_info("diff_info_2km")
+global_diff_info <- read_diff_info("diff_info")
+
+```
+
+
+## Algo
+C'est parti pour l'algo de blanchiement sur le niveau le plus fin :
+
+- je prends une zone détéctée je regarde les carreauix inclus dans la zone et j'essaie dans blanchir suffisamment pour dépasser le seuil des 11 (dans l'idée ne pas choisir les intersections car on sait que ça sert à rien de les blanchir) se servir des carreaux endessous du seuil si il y en a !
+- forcément en mode séquentiel pour que les autres zones pusisent beneficier des c    arreaux blanchis- mais parallelisable au sein d'une composdaznte :)
+- essayer de blanchir des carreauxc cvote à cote pour l'agregation
+- carte pour montrer les carreaux blanchis dans une zone pour vérifier !
+
+
+Prenons l'exemple de la compo 601 et ses 4 communes
+```{r}
+head(global_diff_info)
+
+# taf sur une composante
+list_z1 <- compo$z1[compo$id_comp == 601]
+comp_diff_info <- global_diff_info[id_comp == 601]
+
+comp_diff_info[!duplicated(paste0(z1,z2)),]
+duplicated(comp_diff_info[,c("z1","z2")])
+comp_to_nb_com
+# simplifier en ne s'intéressant qu'aux internes (cf l'interne est toujours l'exeterne de quelque chose d'autre)
+
+input_dt <- data_rp[z1%in% list_z1]
+situation_table <- clean_init_dt(input_dt)
+
+l<- preparer_geom(situation_table)
+
+draw_situation(
+  situation_table,
+  l$geom_z1,
+  l$geom_z2,
+  threshold = 11,save_name = "out"
+               )
+
+```
+
+```{r}
+# diffman ne sort pas touts les types de differenciation par exemple la commune 26267 ne sort pas mais son complémentaire oui donc pas grave..
+
+
+# fonction proteger compo qui balai toutes les cheqck area blanchi de aprt et autres de la ckeked area (dans son complémentaire aussi) on blanchit jusqu'à ce que la différence dépasse 11
+
+num_comp <- 601
+list_z1 <- compo$z1[compo$id_comp == num_comp]
+input_dt <- clean_init_dt(data_rp[z1 %in% list_z1])
+
+
+
+
+# diffman, que les carreaux internes aux zones,il fautéviter les carreaux intersectant, les blanchir ne servirait pas à protéger les autres zones -> préférer les carreaux internes
+fully_included_z2 <- isolate_intersection(input_dt)$fully_included_z2
+list_z2<-unique(fully_included_z2$z2)
+z2_to_tag <- data.table(z2  = list_z2, tag  = FALSE)
+
+comp_diff_info <- global_diff_info[id_comp == num_comp]
+
+l <- split(comp_diff_info,comp_diff_info$checked_area)
+
+for(area_issue in l){
+  
+  # dégager les carreaux déjà blanchis dans chaque zone et 
+  print(unique(area_issue$checked_area))
+  #area_issue <- l[[2]]
+  nb_obs_at_risk <- sum(area_issue$nb_obs)
+  nb_to_add <- threshold - nb_obs_at_risk
+  
+  # en amont récupérer 
+  z1_in_area <-unlist(strsplit(unique(area_issue$checked_area),"-"))
+  z1_out_area <- setdiff(list_z1,z1_in_area)  
+  
+  z2_full_incl <- merge(fully_included_z2[z1 %in% z1_in_area],z2_to_tag,by ="z2",nomatch = 0L)[order(nb_obs)] # la zone a risque
+  z2_full_excl <- merge(fully_included_z2[!z1 %in% z1_in_area],z2_to_tag,by ="z2",nomatch = 0L)[order(nb_obs)] # le complementazire dans la composante
+  
+  # je réadapte le nb en fonction de ce qui a été blanchit déjà et je supprimeai les lignes dans la table après
+  nb_to_add_full_incl <- nb_to_add - sum(z2_full_incl$nb_obs[z2_full_incl$tag])
+  nb_to_add_full_excl <- nb_to_add - sum(z2_full_excl$nb_obs[z2_full_excl$tag])
+  
+  if(nb_to_add_full_incl >0){
+    z2_full_incl <- z2_full_incl[tag == FALSE]
+    z2_full_incl[,cum_nb_obs := cumsum(nb_obs)]
+    z2_full_incl[,higher := cum_nb_obs>nb_to_add_full_incl]
+    
+    ind_z2 <- 1:first(which(z2_full_incl$higher))
+    z2_to_mask_incl <- z2_full_incl$z2[ind_z2]
+  }
+  
+   if(nb_to_add_full_excl >0){
+    
+    z2_full_excl <- z2_full_excl[tag == FALSE]
+    z2_full_excl[,cum_nb_obs := cumsum(nb_obs)]
+    z2_full_excl[,higher := cum_nb_obs>nb_to_add_full_excl]
+    
+    ind_z2 <- 1:first(which(z2_full_excl$higher)) 
+    # ne pas oublier que les inférieurs au seuil seront nécessairement blanchis il faut juste en ajouter si ils ne suffisent pas (si il n'yen a pas  1 seul carreau suffira)
+    z2_to_mask_excl <- z2_full_excl$z2[ind_z2]
+  }
+   # carreaux dans la zone (il faut blanchir jusqu'à 11-nbobs atrisk)
+  
+  z2_to_tag[z2 %in% c(z2_to_mask_incl,z2_to_mask_excl)]$tag <- TRUE
+  
+}
+
+
+# pour l'interne on peut pas blanchir le carreau intersectant mais pour l'externe on pourrait..
+# étudier la possibilité de blanchir un carreau dans la zone interne et le carreau intersectant
+# nécessiterait de retrouver le bug dans diffman..
+
+# ok strategy , la recherche ne sort pas nécessairement tout en interne et en externe mais a priori toutest les intersections à problème ressortent :
+# pour une intersetion à probleme garder une seule ligne. ET blanchir un carreau dans la zone checked et dans le complémentaire de la zone checked. dans la composante -> en images :
+
 
 
 ```
+```{r}
+z2_to_tag
+
+```
+
 ## TO DO :
+- mettre la population communale dans les communes,  coloration des carreaux en blanchis
 - enlever le FR_unallocated de clean_init_data_diffman
 - devtools::check() régler les dernieres notes(notamment diff_info repertory fantome)
 - finalement on va proposer dans le package une stratégie de protection pour diffman hors gridy (ie hors multi level) et on verra ce qsu'on fait pour griddy
