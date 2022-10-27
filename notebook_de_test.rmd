@@ -516,6 +516,9 @@ draw_situation(
 - logique de jonction multi level ?
 - ratiop carreaux à risque carreaux > seuil blanchis?
 - ajouter une coloration spécifique pour les carreaux blanchis au dessus du seuil !!!
+- pk les intersections sont non blanchis ?
+- tagger les carreaux inférieurs à 11 ménage direct ? les prendre en compte dans le calcul de ce qu'il reste à blanchir
+
 ## TO DO :
 
 - à réfléchir : faire les grilles superposées sans diffuser les nive    aux intermédiaires pour pouvoir appliquer diffman tranquillement ?
