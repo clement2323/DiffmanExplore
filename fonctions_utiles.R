@@ -117,7 +117,7 @@ build_complete_internal_table <- function(comp_diff_info,list_z1_compo){
 # fonction proteger compo qui balai toutes les cheqck area blanchi de aprt et autres de la ckeked area (dans son complémentaire aussi) on blanchit jusqu'à ce que la différence dépasse 11
 
 protect_component <- function(num_comp,global_diff_info,data_rp){ 
-  #num_comp <- 1695
+  #num_comp <- 11
   dt <- copy(data_rp)
   list_z1_compo<- compo$z1[compo$id_comp == num_comp]
   input_dt <- clean_init_dt(dt[z1 %in% list_z1_compo])
@@ -129,6 +129,7 @@ protect_component <- function(num_comp,global_diff_info,data_rp){
   
   comp_diff_info <- global_diff_info[id_comp == num_comp]
   
+  if(nrow(comp_diff_info)==0) return(NULL)
   complete_internal_diff_info <- build_complete_internal_table(comp_diff_info,list_z1_compo)
   
   #### Et voici l'algorithme !!
@@ -138,7 +139,7 @@ protect_component <- function(num_comp,global_diff_info,data_rp){
   for(area_issue in l){
     
     # dégager les carreaux déjà blanchis dans chaque zone et 
-    print(unique(area_issue$checked_area))
+    #print(unique(area_issue$checked_area))
     #area_issue <- l[[1]]
     nb_obs_at_risk <- sum(area_issue$nb_obs)
     nb_to_add <- threshold - nb_obs_at_risk

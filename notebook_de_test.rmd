@@ -157,7 +157,7 @@ e-s
 
 input_dt <- data_rp
 global_diff_info <- read_diff_info("diff_info")
-
+global_diff_info <- global_diff_info[!is.na(nb_obs)]
 head(global_diff_info)
 
 ```
@@ -402,7 +402,7 @@ Application et image !!!
 #num_comp <- 136
 # num_comp <- 329
 num_comp <- 1695 # Exemple très didactique
-
+num_comp <- 11
 z2_to_tag <- protect_component(num_comp,global_diff_info,data_rp)
 list_z1 <- compo[id_comp == num_comp]$z1
 
@@ -422,6 +422,19 @@ draw_situation(
 # sum(l$geom_z2 %in% z2_to_tag[tag == TRUE]$z2 )
 ```
 
+Maintenant je vais protéger toutes les composantes
+
+```{r}
+install.packages("pbapply")
+library(pbapply)
+
+pblapply(rev(comp_to_nb_com$id_comp),function(num_comp){
+  #print(num_comp)
+  protect_component(num_comp,global_diff_info,data_rp)
+})
+```
+
+        
 
 # Poyur la suite
 
