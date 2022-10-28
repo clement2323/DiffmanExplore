@@ -411,8 +411,8 @@ draw_situation(
 
 
 # Poyur la suite
+
 - bosser un peu la vignette
-- corriger return diff info pour ne rien sortir si vide
 - Idée laisser les carreaux blanchis < 11 ménages à griddy, et trouver une méthode pour gérer les autres : simple si un niveau grossier est blanchi s'assurer qu'au moins un des enfants l'est. si un niveau fin est blanchi s'assurer qu'au moins (comment diffuser sur ce blanchi ?)
 - par ailleurs mesure t'on la protection. apportée par la pertubation ?
 - applliquer la fonction à l'ensemble des composantes connexes puis à tous les niveaux
