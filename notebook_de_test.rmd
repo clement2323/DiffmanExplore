@@ -256,7 +256,6 @@ library(gridy)
 
 Creation grille superposée avant application griddy
 ```{r}
-
 input_dt <- clean_init_dt(data_rp)
 # Préparation des grilles superposées
 # sh_carr_1km <- carreaux_to_polygon(input_dt[1:10,], var_carreau = "z2")
@@ -285,10 +284,10 @@ head(input_dt_grid)
 
 On va travailler avec le niveau 2km
 ```{r}
-install.packages("doParallel")
-install.packages("foreach")
-library(doParallel)
-library(dplyr)
+# install.packages("doParallel")
+# install.packages("foreach")
+# library(doParallel)
+# library(dplyr)
 
 # Discuter avec Juline du passage en mode "jobs"
 resolutions <- 
@@ -297,13 +296,27 @@ resolutions <-
     "id_carreau_niv_4km","id_carreau_niv_2km")
     #,"id_carreau_niv_1km") 
 
-s <- Sys.time()
-numCores <- 7
-cl <- parallel::makeCluster(numCores)
-doParallel::registerDoParallel(cl)
-l_risk_compo <- foreach(resolution = resolutions,
-                        .packages=c('data.table','diffman')) %dopar% search_diff_pb_one_resolution(resolution,input_dt_grid)
-e <- Sys.time()
+#s <- Sys.time()
+#numCores <- 7
+#cl <- parallel::makeCluster(numCores)
+#doParallel::registerDoParallel(cl)
+#l_risk_compo <- foreach(resolution = resolutions,
+                 #       .packages=c('data.table','diffman')) %dopar% #search_diff_pb_one_resolution(resolution,input_dt_grid)
+#e <- Sys.time()
+vec_temps <- setNames(rep(NA,length(resolutions)),resolutions)
+i = 1
+for (resolution in resolutions){
+  # 
+  print(paste0("recherche de différenciation pour ",resolution))
+  s <- Sys.time()
+  print(resolution)
+  search_diff_pb_one_resolution(resolution,input_dt_grid)
+  e <- Sys.time()
+  print(e-s)
+  vec_temps[i] <- e-s
+  i = i+1
+  
+}
 
 # search_diff_pb_one_resolution("id_carreau_niv_2km",input_dt_grid)
 
