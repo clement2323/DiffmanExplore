@@ -401,12 +401,13 @@ Application et image !!!
 
 
 ```{r}
-global_diff_info[id_comp == 11]
+# dim(global_diff_info[id_comp == 11])
+# global_diff_info[id_comp == 11]$type_diff
 #comp_to_nb_com
 #num_comp <- 136
 # num_comp <- 329
 num_comp <- 1695 # Exemple très didactique
-num_comp <- 11 # marrant pas de problemes ici en realité ?
+#num_comp <- 11 # marrant pas de problemes ici et ça marche bien 
 z2_to_tag <- protect_component(num_comp,global_diff_info,data_rp)
 list_z1 <- compo[id_comp == num_comp]$z1
 
@@ -429,8 +430,9 @@ draw_situation(
 Maintenant je vais protéger toutes les composantes
 time de la grosse compo..
 ```{r}
-
-
+Sys.time()
+protect_component(1,global_diff_info,data_rp)
+Sys.time()
 ```
 
 ```{r}
@@ -449,7 +451,7 @@ pblapply(rev(comp_to_nb_com$id_comp),function(num_comp){
         
 
 # Poyur la suite
-
+- ok les intersections ne passent toujours pas revoir ce qui a changé avec code précédent
 - bosser un peu la vignette
 - Idée laisser les carreaux blanchis < 11 ménages à griddy, et trouver une méthode pour gérer les autres : simple si un niveau grossier est blanchi s'assurer qu'au moins un des enfants l'est. si un niveau fin est blanchi s'assurer qu'au moins (comment diffuser sur ce blanchi ?)
 - par ailleurs mesure t'on la protection. apportée par la pertubation ?

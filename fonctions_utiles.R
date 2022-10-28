@@ -168,8 +168,8 @@ protect_component <- function(num_comp,global_diff_info,data_rp){
   l <- split(complete_internal_diff_info,complete_internal_diff_info$checked_area)
   i <-1
   for(area_issue in l){
-    # print(i)
-    # i <- i+1
+     print(i)
+     i <- i+1
     # dégager les carreaux déjà blanchis dans chaque zone et 
     #print(unique(area_issue$checked_area))
     #area_issue <- l[[1]]
