@@ -93,22 +93,43 @@ build_complete_internal_table <- function(comp_diff_info,list_z1_compo){
   
   external_area <- unique(comp_diff_info[type_diff == "external"]$checked_area)
   internal_area <- unique(comp_diff_info[type_diff == "internal"]$checked_area)
-  
+
   build_compl <- function(checked_area,list_z1_compo){
     paste0(setdiff(list_z1_compo,unlist(strsplit(checked_area,"-"))),collapse="-")
   }
-  
+  # ça se passe bien sur la grosse compo -> 1 min # library(pbapply)
   internal_area_expected <- sapply(external_area,build_compl,list_z1_compo = list_z1_compo)
   
-  if (length(internal_area_expected) !=0){
-    missing_internal_area <- setdiff(internal_area_expected,internal_area)
+  missing_internal_area <- setdiff(internal_area_expected,internal_area)
+  
+  if (length(missing_internal_area) !=0){
+    
     missing_internal_area <- internal_area_expected[internal_area_expected %in% missing_internal_area]
     
+    # fait tout cracher relativement long pour du data table sur la grosse compo
     
-    external_to_transform <- comp_diff_info[type_diff == "external" & checked_area %in% names(missing_internal_area) ]
-    external_to_transform[, `:=`(type_diff = "internal", checked_area= missing_internal_area[checked_area])]
+    # je crée  la table de passage  external to missing internal
+    external_to_internal <- data.table(external_checked_area = as.factor(names(missing_internal_area)), 
+                                       internal_checked_area = as.factor(unname(missing_internal_area)),
+                                       type_diff = "internal"
+                                       )
     
-    complete_internal_diff_info <-rbind(comp_diff_info[type_diff == "internal"],external_to_transform)
+    
+
+    # avec les facteurs -> ultra rapide
+    tmp<-comp_diff_info[,c("z1","z2","nb_obs","checked_area","id_comp")] 
+    tmp[,checked_area := as.factor(checked_area)]
+    
+    # setkey(external_to_internal,"external_checked_area") # crash faire du as.factor ? les chaines sont trop longue ?
+    # setkey(comp_diff_info,"checked_area")
+    
+    # controle 
+    new_internal <- merge(tmp,external_to_internal,by.x = "checked_area" ,by.y = "external_checked_area",nomatch = 0)
+    new_internal$checked_area <- NULL
+    colnames(new_internal)[colnames(new_internal)== "internal_checked_area"] <- "checked_area"
+    
+    complete_internal_diff_info <-rbind(comp_diff_info[type_diff == "internal"],new_internal)
+    
   }else{
     complete_internal_diff_info <- comp_diff_info[type_diff == "internal"]
   }
@@ -120,9 +141,12 @@ build_complete_internal_table <- function(comp_diff_info,list_z1_compo){
 # fonction proteger compo qui balai toutes les cheqck area blanchi de aprt et autres de la ckeked area (dans son complémentaire aussi) on blanchit jusqu'à ce que la différence dépasse 11
 
 protect_component <- function(num_comp,global_diff_info,data_rp){ 
+  # comp_to_nb_com
   #num_comp <- 543 : cas interessant la communne 25130 ne contient aucun carreaux fullyinclude mais qu'un carreau 
   # num_comp <- 599 : très intéressant aussi, la commune 26150  a exactement 11 ménages en son sein
   #num_comp <- 1082 : très intéressant la commune 55055  n'a quun carreau de 3 ménages + une intersection à 5 on ne peut pas la protéger.. -> pour le moment on blanchit tout
+  #num_comp<- 1 fait tout crasher.. -> surement le split ? trouver un moyen + subtile
+  #num_comp <- 1686 : cas normal :)
   # chevauchant => pas de diff_interne possible mais une diff externe possible ici on traite ce sous cas ici
   
   dt <- copy(data_rp)
@@ -136,7 +160,8 @@ protect_component <- function(num_comp,global_diff_info,data_rp){
   
   comp_diff_info <- global_diff_info[id_comp == num_comp]
   
-  if(nrow(comp_diff_info)==0) return(NULL)
+  if(nrow(comp_diff_info)==0) return(NULL) 
+  # enorme sur la grosse composante -> affiner ?
   complete_internal_diff_info <- build_complete_internal_table(comp_diff_info,list_z1_compo)
   
   #### Et voici l'algorithme !!
