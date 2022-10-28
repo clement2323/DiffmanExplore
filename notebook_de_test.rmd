@@ -14,13 +14,17 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r warning=FALSE,message=FALSE,echo = FALSE}
+```{r}
 paquets <- c("data.table","prettydoc","devtools","testthat","ggplot2","dplyr","btb")
-install.packages(paquets)
-p <- lapply(paquets, function(p) suppressPackageStartupMessages(library(p, character.only = TRUE)))
-# remotes::install_github("https://github.com/InseeFrLab/diffman-1")
 ```
 
+```{r warning=FALSE,message=FALSE,echo = FALSE}
+install.packages(paquets)
+```
+
+```{r warning=FALSE,message=FALSE,echo = FALSE}
+p <- lapply(paquets, function(p) suppressPackageStartupMessages(library(p, character.only = TRUE)))
+```
 
 ## Installation du package difffman dans diffmanTab
 ```{r}
@@ -429,9 +433,12 @@ install.packages("pbapply")
 library(pbapply)
 
 pblapply(rev(comp_to_nb_com$id_comp),function(num_comp){
-  #print(num_comp)
-  protect_component(num_comp,global_diff_info,data_rp)
+ print(num_comp)  
+ protect_component(num_comp,global_diff_info,data_rp)
+
 })
+
+
 ```
 
         

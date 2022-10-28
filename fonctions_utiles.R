@@ -100,15 +100,18 @@ build_complete_internal_table <- function(comp_diff_info,list_z1_compo){
   
   internal_area_expected <- sapply(external_area,build_compl,list_z1_compo = list_z1_compo)
   
-  missing_internal_area <- setdiff(internal_area_expected,internal_area)
-  missing_internal_area <- internal_area_expected[internal_area_expected %in% missing_internal_area]
-  
-  
-  external_to_transform <- comp_diff_info[type_diff == "external" & checked_area %in% names(missing_internal_area) ]
-  external_to_transform[, `:=`(type_diff = "internal", checked_area= missing_internal_area[checked_area])]
-  
-  complete_internal_diff_info <-rbind(comp_diff_info[type_diff == "internal"],external_to_transform)
-  
+  if (length(internal_area_expected) !=0){
+    missing_internal_area <- setdiff(internal_area_expected,internal_area)
+    missing_internal_area <- internal_area_expected[internal_area_expected %in% missing_internal_area]
+    
+    
+    external_to_transform <- comp_diff_info[type_diff == "external" & checked_area %in% names(missing_internal_area) ]
+    external_to_transform[, `:=`(type_diff = "internal", checked_area= missing_internal_area[checked_area])]
+    
+    complete_internal_diff_info <-rbind(comp_diff_info[type_diff == "internal"],external_to_transform)
+  }else{
+    complete_internal_diff_info <- comp_diff_info[type_diff == "internal"]
+  }
   return(complete_internal_diff_info)
 }
 
@@ -117,7 +120,11 @@ build_complete_internal_table <- function(comp_diff_info,list_z1_compo){
 # fonction proteger compo qui balai toutes les cheqck area blanchi de aprt et autres de la ckeked area (dans son complémentaire aussi) on blanchit jusqu'à ce que la différence dépasse 11
 
 protect_component <- function(num_comp,global_diff_info,data_rp){ 
-  #num_comp <- 11
+  #num_comp <- 543 : cas interessant la communne 25130 ne contient aucun carreaux fullyinclude mais qu'un carreau 
+  # num_comp <- 599 : très intéressant aussi, la commune 26150  a exactement 11 ménages en son sein
+  #num_comp <- 1082 : très intéressant la commune 55055  n'a quun carreau de 3 ménages + une intersection à 5 on ne peut pas la protéger.. -> pour le moment on blanchit tout
+  # chevauchant => pas de diff_interne possible mais une diff externe possible ici on traite ce sous cas ici
+  
   dt <- copy(data_rp)
   list_z1_compo<- compo$z1[compo$id_comp == num_comp]
   input_dt <- clean_init_dt(dt[z1 %in% list_z1_compo])
@@ -133,7 +140,6 @@ protect_component <- function(num_comp,global_diff_info,data_rp){
   complete_internal_diff_info <- build_complete_internal_table(comp_diff_info,list_z1_compo)
   
   #### Et voici l'algorithme !!
-  
   l <- split(complete_internal_diff_info,complete_internal_diff_info$checked_area)
   
   for(area_issue in l){
@@ -146,7 +152,7 @@ protect_component <- function(num_comp,global_diff_info,data_rp){
     
     # en amont récupérer 
     z1_in_area <-unlist(strsplit(unique(area_issue$checked_area),"-"))
-    z1_out_area <- setdiff(list_z1,z1_in_area)  
+    z1_out_area <- setdiff(list_z1_compo,z1_in_area)  
     
     #On se limite au blanchiment des full_incl quand on regarde la differenciation interne
     z2_full_incl <- merge(input_dt[z1 %in% z1_in_area],z2_to_tag[full_incl == TRUE] ,by ="z2",nomatch = 0L)[order(nb_obs)] # la zone a risque
@@ -163,14 +169,19 @@ protect_component <- function(num_comp,global_diff_info,data_rp){
     nb_to_add_full_incl <- nb_to_add - sum(z2_full_incl$nb_obs[z2_full_incl$tag])
     nb_to_add_full_excl <- nb_to_add - sum(z2_full_excl$nb_obs[z2_full_excl$tag])
     
-    if(nb_to_add_full_incl >0){
+    if(nb_to_add_full_incl >0 & nrow(z2_full_incl) > 0 ){
       z2_full_incl <- z2_full_incl[tag == FALSE]
       z2_full_incl[,cum_nb_obs := cumsum(nb_obs)]
-      z2_full_incl[,higher := cum_nb_obs>nb_to_add_full_incl]
+      z2_full_incl[,higher := cum_nb_obs>=nb_to_add_full_incl]
       
-      ind_z2 <- 1:first(which(z2_full_incl$higher))
+      ind_sup <- first(which(z2_full_incl$higher))
+      if (is.na(ind_sup)){ # pas assez d'obs pour proteger on blanchit tout même l'iontersection et on actualise z2 tot ag direct
+        z2_to_mask_incl <- NULL
+        z2_to_tag[z2 %in% input_dt[z1 %in% z1_in_area]$z2]$tag <- TRUE #on blanchit tout même l'intersection'
+      }else{ # fonctionnement normal
+      ind_z2 <- 1:ind_sup
       z2_to_mask_incl <- z2_full_incl$z2[ind_z2]
-      # actualiser le tag ici !!
+      }
     }
     
     if(nb_to_add_full_excl >0){
