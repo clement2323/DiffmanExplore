@@ -147,6 +147,7 @@ protect_component <- function(num_comp,global_diff_info,data_rp){
   #num_comp <- 1082 : très intéressant la commune 55055  n'a quun carreau de 3 ménages + une intersection à 5 on ne peut pas la protéger.. -> pour le moment on blanchit tout
   #num_comp<- 1 fait tout crasher.. -> surement le split ? trouver un moyen + subtile
   #num_comp <- 1686 : cas normal :)
+  #num_comp <-1695
   # chevauchant => pas de diff_interne possible mais une diff externe possible ici on traite ce sous cas ici
   
   dt <- copy(data_rp)
