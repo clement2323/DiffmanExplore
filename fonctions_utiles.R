@@ -68,6 +68,7 @@ search_diff_pb_one_resolution <- function(resolution,input_dt_grid){
   
   # j'échange les rôles de z1 et z2 si il y a un petit nombre de z2
   if(length(unique(input_dt_resolution$z1))>length(unique(input_dt_resolution$z2))){
+    print("switch des rôles entre z1 et z2")
     input_dt_resolution[,z3:=z2];input_dt_resolution[,z2:=z1];input_dt_resolution[,`:=`(z1=z3,z3=NULL)]
   }
     
