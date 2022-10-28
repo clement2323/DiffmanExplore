@@ -85,3 +85,105 @@ search_diff_pb_one_resolution <- function(resolution,input_dt_grid){
   )
 }
 # readRDS("diff_info_16km/res_1.RDS")
+
+
+
+build_complete_internal_table <- function(comp_diff_info,list_z1_compo){
+  
+  external_area <- unique(comp_diff_info[type_diff == "external"]$checked_area)
+  internal_area <- unique(comp_diff_info[type_diff == "internal"]$checked_area)
+  
+  build_compl <- function(checked_area,list_z1_compo){
+    paste0(setdiff(list_z1_compo,unlist(strsplit(checked_area,"-"))),collapse="-")
+  }
+  
+  internal_area_expected <- sapply(external_area,build_compl,list_z1_compo = list_z1_compo)
+  
+  missing_internal_area <- setdiff(internal_area_expected,internal_area)
+  missing_internal_area <- internal_area_expected[internal_area_expected %in% missing_internal_area]
+  
+  
+  external_to_transform <- comp_diff_info[type_diff == "external" & checked_area %in% names(missing_internal_area) ]
+  external_to_transform[, `:=`(type_diff = "internal", checked_area= missing_internal_area[checked_area])]
+  
+  complete_internal_diff_info <-rbind(comp_diff_info[type_diff == "internal"],external_to_transform)
+  
+  return(complete_internal_diff_info)
+}
+
+
+# diffman ne sort pas touts les types de differenciation par exemple la commune 26267 ne sort pas mais son complémentaire oui donc pas grave..
+# fonction proteger compo qui balai toutes les cheqck area blanchi de aprt et autres de la ckeked area (dans son complémentaire aussi) on blanchit jusqu'à ce que la différence dépasse 11
+
+protect_component <- function(num_comp,global_diff_info,data_rp){ 
+  #num_comp <- 1695
+  dt <- copy(data_rp)
+  list_z1_compo<- compo$z1[compo$id_comp == num_comp]
+  input_dt <- clean_init_dt(dt[z1 %in% list_z1_compo])
+  
+  z2_to_tag <- data.table(z2  = unique(input_dt$z2), tag  = FALSE)
+  fully_included_z2<- diffman:::prepare_data(input_dt)$fully_included_z2
+  
+  z2_to_tag$full_incl <- z2_to_tag$z2 %in% unique(fully_included_z2$z2)
+  
+  comp_diff_info <- global_diff_info[id_comp == num_comp]
+  
+  complete_internal_diff_info <- build_complete_internal_table(comp_diff_info,list_z1_compo)
+  
+  #### Et voici l'algorithme !!
+  
+  l <- split(complete_internal_diff_info,complete_internal_diff_info$checked_area)
+  
+  for(area_issue in l){
+    
+    # dégager les carreaux déjà blanchis dans chaque zone et 
+    print(unique(area_issue$checked_area))
+    #area_issue <- l[[1]]
+    nb_obs_at_risk <- sum(area_issue$nb_obs)
+    nb_to_add <- threshold - nb_obs_at_risk
+    
+    # en amont récupérer 
+    z1_in_area <-unlist(strsplit(unique(area_issue$checked_area),"-"))
+    z1_out_area <- setdiff(list_z1,z1_in_area)  
+    
+    #On se limite au blanchiment des full_incl quand on regarde la differenciation interne
+    z2_full_incl <- merge(input_dt[z1 %in% z1_in_area],z2_to_tag[full_incl == TRUE] ,by ="z2",nomatch = 0L)[order(nb_obs)] # la zone a risque
+    ## Rq : on a bien 1 commune pour 1 carreau ici par definition des z2 totalement inclus
+    
+    # On définit  z2_full_excl par le complémentaire et on fait passer la table au niveau carreau (cf intersection prises en compte)
+    z2_full_excl <- merge(
+      input_dt[!paste0(z1,z2) %in% paste0(z2_full_incl$z1,z2_full_incl$z2)][,.(nb_obs = sum(nb_obs)), by = "z2"]
+      ,z2_to_tag,by ="z2",
+      nomatch = 0L
+    )[order(nb_obs)] # la zone a risque
+    
+    # je réadapte le nb en fonction de ce qui a été blanchit déjà et je supprimeai les lignes dans la table après
+    nb_to_add_full_incl <- nb_to_add - sum(z2_full_incl$nb_obs[z2_full_incl$tag])
+    nb_to_add_full_excl <- nb_to_add - sum(z2_full_excl$nb_obs[z2_full_excl$tag])
+    
+    if(nb_to_add_full_incl >0){
+      z2_full_incl <- z2_full_incl[tag == FALSE]
+      z2_full_incl[,cum_nb_obs := cumsum(nb_obs)]
+      z2_full_incl[,higher := cum_nb_obs>nb_to_add_full_incl]
+      
+      ind_z2 <- 1:first(which(z2_full_incl$higher))
+      z2_to_mask_incl <- z2_full_incl$z2[ind_z2]
+      # actualiser le tag ici !!
+    }
+    
+    if(nb_to_add_full_excl >0){
+      
+      z2_full_excl <- z2_full_excl[tag == FALSE]
+      z2_full_excl[,cum_nb_obs := cumsum(nb_obs)]
+      z2_full_excl[,higher := cum_nb_obs>nb_to_add_full_excl]
+      
+      ind_z2 <- 1:first(which(z2_full_excl$higher)) 
+      # ne pas oublier que les inférieurs au seuil seront nécessairement blanchis il faut juste en ajouter si ils ne suffisent pas (si il n'yen a pas  1 seul carreau suffira)
+      z2_to_mask_excl <- z2_full_excl$z2[ind_z2]
+    }
+    # carreaux dans la zone (il faut blanchir jusqu'à 11-nbobs atrisk)
+    
+    z2_to_tag[z2 %in% c(z2_to_mask_incl,z2_to_mask_excl)]$tag <- TRUE
+  }
+  return(z2_to_tag)
+}
