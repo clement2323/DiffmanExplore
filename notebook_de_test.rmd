@@ -401,12 +401,12 @@ Application et image !!!
 
 
 ```{r}
-
+global_diff_info[id_comp == 11]
 #comp_to_nb_com
 #num_comp <- 136
 # num_comp <- 329
 num_comp <- 1695 # Exemple très didactique
-num_comp <- 11
+num_comp <- 11 # marrant pas de problemes ici en realité ?
 z2_to_tag <- protect_component(num_comp,global_diff_info,data_rp)
 list_z1 <- compo[id_comp == num_comp]$z1
 
@@ -427,6 +427,11 @@ draw_situation(
 ```
 
 Maintenant je vais protéger toutes les composantes
+time de la grosse compo..
+```{r}
+
+
+```
 
 ```{r}
 install.packages("pbapply")
@@ -455,7 +460,8 @@ pblapply(rev(comp_to_nb_com$id_comp),function(num_comp){
 - ajouter une coloration spécifique pour les carreaux blanchis au dessus du seuil !!!
 - pk les intersections sont non blanchis ?
 - tagger les carreaux inférieurs à 11 ménage direct ? les prendre en compte dans le calcul de ce qu'il reste à blanchir
-
+- bien comprendre pk les facteurs c'est plus rapide
+- gestion plus fine des risques pour la plus grosse composante
 ## TO DO :
 
 - à réfléchir : faire les grilles superposées sans diffuser les nive    aux intermédiaires pour pouvoir appliquer diffman tranquillement ?

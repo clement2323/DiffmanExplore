@@ -168,8 +168,8 @@ protect_component <- function(num_comp,global_diff_info,data_rp){
   l <- split(complete_internal_diff_info,complete_internal_diff_info$checked_area)
   i <-1
   for(area_issue in l){
-    print(i)
-    i <- i+1
+    # print(i)
+    # i <- i+1
     # dégager les carreaux déjà blanchis dans chaque zone et 
     #print(unique(area_issue$checked_area))
     #area_issue <- l[[1]]
@@ -183,19 +183,19 @@ protect_component <- function(num_comp,global_diff_info,data_rp){
     
     #On se limite au blanchiment des full_incl quand on regarde la differenciation interne
   
-    z2_full_incl <-input_dt[z1 %in% z1_in_area & z2 %in% z2_to_tag[full_incl == TRUE]$z2][order(nb_obs)] 
+    z2_full_incl <-input_dt[z1 %in% z1_in_area & z2 %in% z2_to_tag[full_incl == TRUE]$z2] 
      # Rq : on a bien 1 commune pour 1 carreau ici par definition des z2 totalement inclus
     
     # il faut récupérer le tag !!
-    z2_full_incl <- merge(z2_full_incl,z2_to_tag,by ="z2")
+    z2_full_incl <- merge(z2_full_incl,z2_to_tag,by ="z2")[order(nb_obs)]
     
     
     # On définit  z2_full_excl par le complémentaire et on fait passer la table au niveau carreau (cf intersection prises en compte)
     z2_full_excl <- 
-      input_dt[!paste0(z1,z2) %in% paste0(z2_full_incl$z1,z2_full_incl$z2)][,.(nb_obs = sum(nb_obs)), by = "z2"][order(nb_obs)] # la zone a risque
+      input_dt[!paste0(z1,z2) %in% paste0(z2_full_incl$z1,z2_full_incl$z2)][,.(nb_obs = sum(nb_obs)), by = "z2"]# la zone a risque
     
    
-    z2_full_excl <- merge(z2_full_excl,z2_to_tag,by ="z2")
+    z2_full_excl <- merge(z2_full_excl,z2_to_tag,by ="z2")[order(nb_obs)]
     
     
     # je réadapte le nb en fonction de ce qui a été blanchit déjà et je supprimeai les lignes dans la table après
