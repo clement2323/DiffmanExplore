@@ -169,7 +169,7 @@ protect_component <- function(num_comp,global_diff_info,data_rp){
   l <- split(complete_internal_diff_info,complete_internal_diff_info$checked_area)
   i <-1
   for(area_issue in l){
-     print(i)
+    # print(i)
      i <- i+1
     # dégager les carreaux déjà blanchis dans chaque zone et 
     #print(unique(area_issue$checked_area))
@@ -234,3 +234,33 @@ protect_component <- function(num_comp,global_diff_info,data_rp){
   }
   return(z2_to_tag)
 }
+
+
+protect_component_2<-function(num_comp,global_diff_info,data_rp){ 
+  # comp_to_nb_com
+  #num_comp <- 543 : cas interessant la communne 25130 ne contient aucun carreaux fullyinclude mais qu'un carreau 
+  # num_comp <- 599 : très intéressant aussi, la commune 26150  a exactement 11 ménages en son sein
+  #num_comp <- 1082 : très intéressant la commune 55055  n'a quun carreau de 3 ménages + une intersection à 5 on ne peut pas la protéger.. -> pour le moment on blanchit tout
+  #num_comp<- 1 fait tout crasher.. -> surement le split ? trouver un moyen + subtile
+  #num_comp <- 1686 : cas normal :)
+  #num_comp <-1523
+  # chevauchant => pas de diff_interne possible mais une diff externe possible ici on traite ce sous cas ici
+  
+  dt <- copy(data_rp)
+  list_z1_compo<- compo$z1[compo$id_comp == num_comp]
+  input_dt <- clean_init_dt(dt[z1 %in% list_z1_compo])
+ 
+  z2_to_tag <- data.table(z2  = unique(input_dt$z2), tag  = FALSE)
+  fully_included_z2<- diffman:::prepare_data(input_dt)$fully_included_z2
+  
+  z2_to_tag$full_incl <- z2_to_tag$z2 %in% unique(fully_included_z2$z2)
+  
+  comp_diff_info <- global_diff_info[id_comp == num_comp]
+  # en protegeant ces area min  on est sur de proteger celles qui les contiennent
+  zones_a_blanchir <-comp_diff_info[,.(
+    checked_area_min = checked_area[which.min(nchar(checked_area))]
+    ),
+    by =c("z1","z2")]
+  
+  
+  }
