@@ -405,8 +405,8 @@ Application et image !!!
 # global_diff_info[id_comp == 11]$type_diff
 #comp_to_nb_com
 #num_comp <- 136
-# num_comp <- 329
-num_comp <- 1695 # Exemple très didactique
+ num_comp <- 1232
+#num_comp <- 1695 # Exemple très didactique
 #num_comp <- 11 # marrant pas de problemes ici et ça marche bien 
 z2_to_tag <- protect_component(num_comp,global_diff_info,data_rp)
 list_z1 <- compo[id_comp == num_comp]$z1
@@ -430,9 +430,15 @@ draw_situation(
 Maintenant je vais protéger toutes les composantes
 time de la grosse compo..
 ```{r}
+# ça prend 10 h sauvegarder ça et on en parle plus discuter de l'optimisation plus tard et du blanchiment multi niveau..
+# essayer dans représenter une partie et surtout faire des stats dessus avec les autres moins longue ^^^
 Sys.time()
-protect_component(1,global_diff_info,data_rp)
+z2_to_tag_big_compo <-protect_component(1,global_diff_info,data_rp)
 Sys.time()
+saveRDS(z2_to_tag_big_compo,"z2_to_tag_big_compo.rds")
+mc cp z2_to_tag_big_compo.rds s3/cguillo/z2_to_tag_big_compo.rds
+# 9h40
+# MC CP <3
 ```
 
 ```{r}

@@ -87,6 +87,9 @@ search_diff_pb_one_resolution <- function(resolution,input_dt_grid){
 }
 # readRDS("diff_info_16km/res_1.RDS")
 
+build_compl <- function(checked_area,list_z1_compo){
+  paste0(setdiff(list_z1_compo,unlist(strsplit(checked_area,"-"))),collapse="-")
+}
 
 
 build_complete_internal_table <- function(comp_diff_info,list_z1_compo){
@@ -94,9 +97,6 @@ build_complete_internal_table <- function(comp_diff_info,list_z1_compo){
   external_area <- unique(comp_diff_info[type_diff == "external"]$checked_area)
   internal_area <- unique(comp_diff_info[type_diff == "internal"]$checked_area)
 
-  build_compl <- function(checked_area,list_z1_compo){
-    paste0(setdiff(list_z1_compo,unlist(strsplit(checked_area,"-"))),collapse="-")
-  }
   # ça se passe bien sur la grosse compo -> 1 min # library(pbapply)
   internal_area_expected <- sapply(external_area,build_compl,list_z1_compo = list_z1_compo)
   
@@ -165,11 +165,14 @@ protect_component <- function(num_comp,global_diff_info,data_rp){
   # enorme sur la grosse composante -> affiner ?
   complete_internal_diff_info <- build_complete_internal_table(comp_diff_info,list_z1_compo)
   
+  
   #### Et voici l'algorithme !!
   l <- split(complete_internal_diff_info,complete_internal_diff_info$checked_area)
+  #length(l)
+  #length(unique(paste0(complete_internal_diff_info$z1,complete_internal_diff_info$z2)))
   i <-1
   for(area_issue in l){
-    # print(i)
+    if (i%%500 == 0) print(i)
      i <- i+1
     # dégager les carreaux déjà blanchis dans chaque zone et 
     #print(unique(area_issue$checked_area))
@@ -258,9 +261,15 @@ protect_component_2<-function(num_comp,global_diff_info,data_rp){
   comp_diff_info <- global_diff_info[id_comp == num_comp]
   # en protegeant ces area min  on est sur de proteger celles qui les contiennent
   zones_a_blanchir <-comp_diff_info[,.(
-    checked_area_min = checked_area[which.min(nchar(checked_area))]
+    checked_area_min = checked_area[which.min(nchar(checked_area))],
+    nb_obs = unique(nb_obs),
+    type_diff = type_diff[which.min(nchar(checked_area))]
     ),
     by =c("z1","z2")]
   
+  area_to_protect_internal <-zones_a_blanchir[type_diff == "internal"]
+  area_to_protect_external <- zones_a_blanchir[type_diff == "external"]
+  area_to_protect_external$checked_area_min <- unname(sapply(area_to_protect_external$checked_area_min,build_compl,list_z1_compo))
+  area_to_protect_internal <- rbind(area_to_protect_internal,area_to_protect_external)
   
   }
