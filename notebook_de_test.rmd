@@ -436,7 +436,7 @@ Sys.time()
 z2_to_tag_big_compo <-protect_component(1,global_diff_info,data_rp)
 Sys.time()
 saveRDS(z2_to_tag_big_compo,"z2_to_tag_big_compo.rds")
-mc cp z2_to_tag_big_compo.rds s3/cguillo/z2_to_tag_big_compo.rds
+
 # 9h40
 # MC CP <3
 ```
@@ -445,15 +445,29 @@ mc cp z2_to_tag_big_compo.rds s3/cguillo/z2_to_tag_big_compo.rds
 install.packages("pbapply")
 library(pbapply)
 
-pblapply(rev(comp_to_nb_com$id_comp),function(num_comp){
- print(num_comp)  
+# 10 min
+l <- pblapply(rev(comp_to_nb_com$id_comp),function(num_comp){
+ if(num_comp ==1) return(NULL)
  protect_component(num_comp,global_diff_info,data_rp)
-
 })
 
+res <- do.call(rbind,l)
+res <-rbind(z2_to_tag_big_compo,res)
 
 ```
 
+Des stats, nombre de carreaux blanchis, en dessus, en dessous du seuil etc..
+```{r}
+data_rp_tag <- merge(data_rp[,.(nb_obs = sum(nb_obs)), by ="z2"],res,by = "z2")
+
+data_rp_tag[tag  == TRUE] # 19333 blanchis
+data_rp_tag[tag  == TRUE & full_incl == FALSE] # 1242 intersections blanchies
+data_rp_tag[tag  == TRUE & nb_obs >= 11] # 2304 carreaux blanchis supérieurs au seuil..
+
+# veut-on vraiment diffuser les grilles superposées, on pourrait se servir de griddy pour ventiler mais c'est tout..
+
+colnames(data_rp)
+```
         
 
 # Poyur la suite
