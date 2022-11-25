@@ -51,8 +51,11 @@ mc cp s3/cguillo/commune_franceentiere_2021.prj ext_data/commune_franceentiere_2
 mc cp s3/cguillo/commune_franceentiere_2021.shp ext_data/commune_franceentiere_2021.shp
 mc cp s3/cguillo/commune_franceentiere_2021.shx ext_data/commune_franceentiere_2021.shx
 mc cp s3/cguillo/data_rp.rds ext_data/data_rp.rds
-mc cp --recursive s3/cguillo/diff_info/ diff_info
-mc cp --recursive s3/cguillo/diff_info_2km/ diff_info_2km
+mc cp s3/cguillo/data_rp.rds DiffmanExplore/data_rp.rds
+mc cp s3/cguillo/resultat_brut_gridy_individus.RData resultat_brut_gridy_individus.RData
+
+<!-- mc cp --recursive s3/cguillo/diff_info/ diff_info -->
+<!-- mc cp --recursive s3/cguillo/diff_info_2km/ diff_info_2km -->
 
 ## Code de travail, je pars des données RP
 ```{r}
@@ -80,7 +83,7 @@ head(l_area_z1_at_risk,20)
 299 union of elements of z1 at risk of differenciation here. let's look further one this risk area
 ```{r}
 #lapply(l_area_z1_at_risk,length)
-area_z1_at_risk <- l_area_z1_at_risk[[20]]
+area_z1_at_risk <- l_area_z1_at_risk[[3]]
 area_z1_at_risk
 
 ```
