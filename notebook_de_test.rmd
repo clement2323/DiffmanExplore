@@ -71,7 +71,7 @@ comp_to_nb_com
 
 Ici je choisis une composante connexe particulière
 ```{r}
-list_z1_compo <- compo[id_comp == 329]$z1
+list_z1_compo <- compo[id_comp == 1281]$z1
 input_dt <- data_rp[z1 %in% list_z1_compo]
 
 l_area_z1_at_risk <- find_pbm_diff_tab(input_dt = input_dt,threshold = 11 )
@@ -83,7 +83,7 @@ head(l_area_z1_at_risk,20)
 299 union of elements of z1 at risk of differenciation here. let's look further one this risk area
 ```{r}
 #lapply(l_area_z1_at_risk,length)
-area_z1_at_risk <- l_area_z1_at_risk[[3]]
+area_z1_at_risk <- l_area_z1_at_risk[[1]]
 area_z1_at_risk
 
 ```

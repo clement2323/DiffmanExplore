@@ -28,7 +28,7 @@ carreaux_to_polygon <- function(data, var_carreau){
 
 # pour préparer les géométries
 preparer_geom <- function(input_dt){
-  
+  # input_dt <- situation_table
   dt <- copy(input_dt)
   liste_carreau <- unique(dt$z2)
   
@@ -92,6 +92,9 @@ build_compl <- function(checked_area,list_z1_compo){
 }
 
 
+
+# A partir de la liste des z1 dans une composante connexe et des problemes de différenciation extrait je construis une liste exhaustive 
+# de zone interne (desfois une intersectionn n'apparait qu'en ionternal ou en external)
 build_complete_internal_table <- function(comp_diff_info,list_z1_compo){
   
   external_area <- unique(comp_diff_info[type_diff == "external"]$checked_area)
@@ -140,14 +143,9 @@ build_complete_internal_table <- function(comp_diff_info,list_z1_compo){
 # diffman ne sort pas touts les types de differenciation par exemple la commune 26267 ne sort pas mais son complémentaire oui donc pas grave..
 # fonction proteger compo qui balai toutes les cheqck area blanchi de aprt et autres de la ckeked area (dans son complémentaire aussi) on blanchit jusqu'à ce que la différence dépasse 11
 
-protect_component <- function(num_comp,global_diff_info,data_rp){ 
+protect_component <- function(num_comp,global_diff_info,data_rp,emboitement,threshold =11){ 
   # comp_to_nb_com
-  #num_comp <- 543 : cas interessant la communne 25130 ne contient aucun carreaux fullyinclude mais qu'un carreau 
-  # num_comp <- 599 : très intéressant aussi, la commune 26150  a exactement 11 ménages en son sein
-  #num_comp <- 1082 : très intéressant la commune 55055  n'a quun carreau de 3 ménages + une intersection à 5 on ne peut pas la protéger.. -> pour le moment on blanchit tout
-  #num_comp<- 1 fait tout crasher.. -> surement le split ? trouver un moyen + subtile
-  #num_comp <- 1686 : cas normal :)
-  #num_comp <-1695
+  # num_comp <- 387
   # chevauchant => pas de diff_interne possible mais une diff externe possible ici on traite ce sous cas ici
   
   dt <- copy(data_rp)
@@ -155,6 +153,12 @@ protect_component <- function(num_comp,global_diff_info,data_rp){
   input_dt <- clean_init_dt(dt[z1 %in% list_z1_compo])
   
   z2_to_tag <- data.table(z2  = unique(input_dt$z2), tag  = FALSE)
+  
+  # z2_to_tag <- data.table(z2  = unique(input_dt$z2), tag  = FALSE, tag_sup = FALSE)
+  # z2_to_z2_sup <- emboitement[,c("id_carreau_petit","id_carreau_niv6")]
+  # colnames(z2_to_z2_sup)<- c("z2","z2_sup")
+  # z2_to_tag<- merge(z2_to_tag,z2_to_z2_sup,by = "z2")
+  
   fully_included_z2<- diffman:::prepare_data(input_dt)$fully_included_z2
   
   z2_to_tag$full_incl <- z2_to_tag$z2 %in% unique(fully_included_z2$z2)
@@ -164,20 +168,24 @@ protect_component <- function(num_comp,global_diff_info,data_rp){
   if(nrow(comp_diff_info)==0) return(NULL) 
   # enorme sur la grosse composante -> affiner ?
   complete_internal_diff_info <- build_complete_internal_table(comp_diff_info,list_z1_compo)
-  
-  
   #### Et voici l'algorithme !!
   l <- split(complete_internal_diff_info,complete_internal_diff_info$checked_area)
   #length(l)
   #length(unique(paste0(complete_internal_diff_info$z1,complete_internal_diff_info$z2)))
   i <-1
+  #if(num_comp == 1){print("debut de la boucle")}
   for(area_issue in l){
-    if (i%%500 == 0) print(i)
+    if (i%%200 == 0) print(i)
      i <- i+1
+     
+     #print(i)
+  
+     
     # dégager les carreaux déjà blanchis dans chaque zone et 
     #print(unique(area_issue$checked_area))
-    #area_issue <- l[[1]]
-    
+    #area_issue <- l[[3]]
+     # area_issue <-   l$`15200`
+  
     nb_obs_at_risk <- sum(area_issue$nb_obs)
     nb_to_add <- threshold - nb_obs_at_risk
     
@@ -186,9 +194,8 @@ protect_component <- function(num_comp,global_diff_info,data_rp){
     z1_out_area <- setdiff(list_z1_compo,z1_in_area)  
     
     #On se limite au blanchiment des full_incl quand on regarde la differenciation interne
-  
     z2_full_incl <-input_dt[z1 %in% z1_in_area & z2 %in% z2_to_tag[full_incl == TRUE]$z2] 
-     # Rq : on a bien 1 commune pour 1 carreau ici par definition des z2 totalement inclus
+    # Rq : on a bien 1 commune pour 1 carreau ici par definition des z2 totalement inclus
     
     # il faut récupérer le tag !!
     z2_full_incl <- merge(z2_full_incl,z2_to_tag,by ="z2")[order(nb_obs)]
@@ -197,11 +204,9 @@ protect_component <- function(num_comp,global_diff_info,data_rp){
     # On définit  z2_full_excl par le complémentaire et on fait passer la table au niveau carreau (cf intersection prises en compte)
     z2_full_excl <- 
       input_dt[!paste0(z1,z2) %in% paste0(z2_full_incl$z1,z2_full_incl$z2)][,.(nb_obs = sum(nb_obs)), by = "z2"]# la zone a risque
-    
    
     z2_full_excl <- merge(z2_full_excl,z2_to_tag,by ="z2")[order(nb_obs)]
-    
-    
+  
     # je réadapte le nb en fonction de ce qui a été blanchit déjà et je supprimeai les lignes dans la table après
     nb_to_add_full_incl <- nb_to_add - sum(z2_full_incl$nb_obs[z2_full_incl$tag])
     nb_to_add_full_excl <- nb_to_add - sum(z2_full_excl$nb_obs[z2_full_excl$tag])
@@ -234,42 +239,15 @@ protect_component <- function(num_comp,global_diff_info,data_rp){
     # carreaux dans la zone (il faut blanchir jusqu'à 11-nbobs atrisk)
     
     z2_to_tag[z2 %in% c(z2_to_mask_incl,z2_to_mask_excl)]$tag <- TRUE
-  }
+    
+    # verifier que l'on ne peut reconstruire les zones interne avec les carreaux de niveau supérieur
+    # il suffit de faire une fusion entre les deux zones, si elle est non vide on a gagné sinon il faut blanchir au niveau au dessus 
+    
+    #merge_z2_sup <-merge(z2_full_excl,z2_full_incl,by ="z2_sup")
+    # arrive beaucoup trop souvent..
+    
+    #if(nrow(merge_z2_sup==0)){print(paste0("level sup issue for area ",i))}
+  
+  } # fin de la boucle 
   return(z2_to_tag)
 }
-
-
-protect_component_2<-function(num_comp,global_diff_info,data_rp){ 
-  # comp_to_nb_com
-  #num_comp <- 543 : cas interessant la communne 25130 ne contient aucun carreaux fullyinclude mais qu'un carreau 
-  # num_comp <- 599 : très intéressant aussi, la commune 26150  a exactement 11 ménages en son sein
-  #num_comp <- 1082 : très intéressant la commune 55055  n'a quun carreau de 3 ménages + une intersection à 5 on ne peut pas la protéger.. -> pour le moment on blanchit tout
-  #num_comp<- 1 fait tout crasher.. -> surement le split ? trouver un moyen + subtile
-  #num_comp <- 1686 : cas normal :)
-  #num_comp <-1523
-  # chevauchant => pas de diff_interne possible mais une diff externe possible ici on traite ce sous cas ici
-  
-  dt <- copy(data_rp)
-  list_z1_compo<- compo$z1[compo$id_comp == num_comp]
-  input_dt <- clean_init_dt(dt[z1 %in% list_z1_compo])
- 
-  z2_to_tag <- data.table(z2  = unique(input_dt$z2), tag  = FALSE)
-  fully_included_z2<- diffman:::prepare_data(input_dt)$fully_included_z2
-  
-  z2_to_tag$full_incl <- z2_to_tag$z2 %in% unique(fully_included_z2$z2)
-  
-  comp_diff_info <- global_diff_info[id_comp == num_comp]
-  # en protegeant ces area min  on est sur de proteger celles qui les contiennent
-  zones_a_blanchir <-comp_diff_info[,.(
-    checked_area_min = checked_area[which.min(nchar(checked_area))],
-    nb_obs = unique(nb_obs),
-    type_diff = type_diff[which.min(nchar(checked_area))]
-    ),
-    by =c("z1","z2")]
-  
-  area_to_protect_internal <-zones_a_blanchir[type_diff == "internal"]
-  area_to_protect_external <- zones_a_blanchir[type_diff == "external"]
-  area_to_protect_external$checked_area_min <- unname(sapply(area_to_protect_external$checked_area_min,build_compl,list_z1_compo))
-  area_to_protect_internal <- rbind(area_to_protect_internal,area_to_protect_external)
-  
-  }
