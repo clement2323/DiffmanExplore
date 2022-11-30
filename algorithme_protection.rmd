@@ -179,6 +179,7 @@ res <-rbind(z2_to_tag_big_compo,res)
 
 saveRDS(res,"z2_to_tag.rds")
 
+z2_to_tag <- readRDS(file = "z2_to_tag.rds")
 
 ```
 
@@ -199,11 +200,43 @@ carreaux_griddy[id_carreau %in% z2_sup_seuil] %>%
 
 ```{r}
 
+# petit test d'algo 
 emboitement <- emboitement %>% 
   group_by(z2_sup) %>% 
   mutate(nfils = n()) 
 
-area_issue <- global_diff_info  
-
+  area_issue <- global_diff_info$checked_area[1]  
+  
+  # comp_to_nb_com
+  num_comp <- 22
+  list_z1_compo<- compo$z1[compo$id_comp == num_comp]
+  
+  dt <- copy(data_rp)
+  input_dt <- clean_init_dt(dt[z1 %in% list_z1_compo])
+  
+  comp_diff_info <- global_diff_info[id_comp == num_comp]
+  complete_internal_diff_info <- build_complete_internal_table(comp_diff_info,list_z1_compo)
+  
+  l <- split(complete_internal_diff_info, complete_internal_diff_info$checked_area)
+  
+  ## on fait une check area
+  area_issue <- l[[1]]
+  
+  
+  
+  
+  
+  # je construis
+  
+  
+  
+  
+  fully_included_z2<- diffman:::prepare_data(input_dt)$fully_included_z2
+  z2_to_tag$full_incl <- z2_to_tag$z2 %in% unique(fully_included_z2$z2)
+  
+  
+  if(nrow(comp_diff_info)==0) return(NULL)  # Je build ici la table avectoutes les internal différences
+  
+  
 
 ```
