@@ -145,7 +145,7 @@ build_complete_internal_table <- function(comp_diff_info,list_z1_compo){
 
 protect_component <- function(num_comp,global_diff_info,data_rp,emboitement,threshold =11){ 
   # comp_to_nb_com
-  # num_comp <- 387
+  # num_comp <- 263
   # chevauchant => pas de diff_interne possible mais une diff externe possible ici on traite ce sous cas ici
   
   dt <- copy(data_rp)
@@ -176,14 +176,12 @@ protect_component <- function(num_comp,global_diff_info,data_rp,emboitement,thre
   #if(num_comp == 1){print("debut de la boucle")}
   for(area_issue in l){
     if (i%%200 == 0) print(i)
-     i <- i+1
-     
-     #print(i)
-  
+    #print(i) 
+    i <- i+1
      
     # dégager les carreaux déjà blanchis dans chaque zone et 
     #print(unique(area_issue$checked_area))
-    #area_issue <- l[[3]]
+    #area_issue <- l[[1]]
      # area_issue <-   l$`15200`
   
     nb_obs_at_risk <- sum(area_issue$nb_obs)
@@ -217,24 +215,33 @@ protect_component <- function(num_comp,global_diff_info,data_rp,emboitement,thre
       z2_full_incl[,higher := cum_nb_obs>=nb_to_add_full_incl]
       
       ind_sup <- first(which(z2_full_incl$higher))
+      
       if (is.na(ind_sup)){ # pas assez d'obs pour proteger on blanchit tout même l'iontersection et on actualise z2 tot ag direct
         z2_to_mask_incl <- NULL
-        z2_to_tag[z2 %in% input_dt[z1 %in% z1_in_area]$z2]$tag <- TRUE #on blanchit tout même l'intersection'
+        z2_to_tag[z2 %in% input_dt[z1 %in% z1_in_area]$z2]$tag <- TRUE #on blanchit tout même l'intersection qu'opn récupère (la commune n'a pas assez de ménages )
       }else{ # fonctionnement normal
       ind_z2 <- 1:ind_sup
       z2_to_mask_incl <- z2_full_incl$z2[ind_z2]
       }
     }
     
-    if(nb_to_add_full_excl >0){
+    if(nb_to_add_full_excl >0 & nrow(z2_full_excl)> 0 ){
       
       z2_full_excl <- z2_full_excl[tag == FALSE]
       z2_full_excl[,cum_nb_obs := cumsum(nb_obs)]
       z2_full_excl[,higher := cum_nb_obs>nb_to_add_full_excl]
       
-      ind_z2 <- 1:first(which(z2_full_excl$higher)) 
+      ind_sup <- first(which(z2_full_excl$higher)) 
+      
       # ne pas oublier que les inférieurs au seuil seront nécessairement blanchis il faut juste en ajouter si ils ne suffisent pas (si il n'yen a pas  1 seul carreau suffira)
+      
+      if (is.na(ind_sup)){ # pas assez d'obs pour proteger on blanchit tout même l'iontersection et on actualise z2 tot ag direct
+        z2_to_mask_excl <- NULL
+        z2_to_tag[z2 %in% z2_full_excl$z2]$tag <- TRUE #on blanchit tout aussi
+      }else{
+      ind_z2 <- 1:ind_sup
       z2_to_mask_excl <- z2_full_excl$z2[ind_z2]
+      }
     }
     # carreaux dans la zone (il faut blanchir jusqu'à 11-nbobs atrisk)
     

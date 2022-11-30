@@ -1,0 +1,179 @@
+---
+title: "Diffman tutorial"
+author: "Clément G"
+date: "`r Sys.Date()`"
+output:
+  prettydoc::html_pretty:
+    theme: cayman
+    highlight: github
+    toc: true
+    toc_depth: 5
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+mc cp s3/cguillo/commune_franceentiere_2021.dbf ext_data/commune_franceentiere_2021.dbf
+mc cp s3/cguillo/commune_franceentiere_2021.fix ext_data/commune_franceentiere_2021.fix
+mc cp s3/cguillo/commune_franceentiere_2021.prj ext_data/commune_franceentiere_2021.prj
+mc cp s3/cguillo/commune_franceentiere_2021.shp ext_data/commune_franceentiere_2021.shp
+mc cp s3/cguillo/commune_franceentiere_2021.shx ext_data/commune_franceentiere_2021.shx
+mc cp s3/cguillo/data_rp.rds ext_data/data_rp.rds
+mc cp s3/cguillo/data_rp.rds DiffmanExplore/data_rp.rds
+mc cp s3/cguillo/resultat_brut_gridy_individus.RData resultat_brut_gridy_individus.RData
+
+## Intro 
+Ici, j'applique directement l'algorithme de protection sur les carreaux sensibles détectés par griddy
+
+```{r}
+paquets <- c("data.table","prettydoc","devtools","testthat","ggplot2","dplyr","btb")
+```
+
+```{r warning=FALSE,message=FALSE,echo = FALSE}
+install.packages(paquets)
+```
+
+```{r warning=FALSE,message=FALSE,echo = FALSE}
+p <- lapply(paquets, function(p) suppressPackageStartupMessages(library(p, character.only = TRUE)))
+```
+
+```{r, echo = FALSE}
+source("fonctions_utiles.R")
+
+remove.packages("diffman")  
+devtools::install_github(
+  repo = "InseeFrLab/diffman-1",
+  ref = "diffmanTab",# la branche
+  force = TRUE
+  )
+
+library(diffman)
+```
+
+
+## Détail de l'algorithme :
+
+Ici on va utiliser les sorties de diffman sur le niveau le plus fin pour protéger les carreaux.
+Diffman extrait les intersections carreaux x commune à risque, il faut donc les protéger. Pour ce faire on va blanchir des carreaux supplémentaires.
+
+Une intersection carreau x commune donnée peut être retrouvée via différenciation externe ou interne. Ainsi on devra blanchir des carreaux (la somme des carreaux blanchis doit faire au moins 11) dans la zone interne en question et aussi dans la zone externe en question (a priori le complémentaire de la zone interne dans la composante connexe elle inclut le carreau intersectant).
+(le raisonnement sur la zone externe n'est peut etre pas suffisant)
+
+On travaille composante connexe par composante connexe. Pour la plus grosse composante connexe, cette opération prend beaucoup de temps..(10 h approximativement ).
+
+Une fois cette protection au niveau le plus fin effectuée il faut sassurer que l'on ne peut pas reconstruire une zone interne ou externe à problème avec la juxtaposition de carreau au niveau le plus grossier. Par exemple 1 carreau de niveau 2km = 4 carreaux de niveau 1 km. donc on va vé"riifier si on a 4 carreaux ou un multiple de 4 dans la zone en question. Si oui on vérifie que 
+ncarreaux / 4 = nombre d'id'entifiants uniques et que ces carreaux n'apparaissent que dans la zone en question.. (couteux..)
+
+Ne pas travailler sur la grosse composante pour commencer !
+
+*Ce qu'il faut regarder à la fin :*
+
+le nombre de carreaux blanchis en + par rapport à griddy -> griddy nous donne déjà des carreaux blanchis < au seuil donc on a des chances que ces derniers soient également choisis par diffman et que la protectiion des inter carreaux x commune à risque ne coute pas beaucoup plus
+
+le nombre de fois où on peut reconstruire intégralement une zone interne ou externe problématique à l'aide de la concaténation des carreaux supras.  
+
+**Lecture des sorties diffman**
+```{r}
+input_dt <- data_rp
+global_diff_info <- read_diff_info("diff_info")
+global_diff_info <- global_diff_info[!is.na(nb_obs)]
+head(global_diff_info)
+
+```
+
+## Chargement des données
+
+```{r}
+communes <-sf::st_read("ext_data/commune_franceentiere_2021.shp")
+data_rp <- data.table(readRDS("ext_data/data_rp.rds"))
+compo <- return_connected_components(data_rp)
+comp_to_nb_com <- compo[,.(nb_com = length(z1)),by ="id_comp"][rev(order(nb_com)),]
+comp_to_nb_com
+
+```
+
+## Travail sur une composante :
+On va regarder dans la composante 387 et ses 80 communes :
+```{r}
+num_comp <- 263
+threshold <- 11
+list_z1 <- compo$z1[compo$id_comp == num_comp ]
+comp_diff_info <- global_diff_info[id_comp == num_comp ]
+
+# application de l'algo
+
+#z2_to_tag <- protect_component(num_comp,global_diff_info,data_rp)
+list_z1 <- compo[id_comp == num_comp]$z1
+
+input_dt <- clean_init_dt(data_rp[z1 %in% list_z1])
+l<- preparer_geom(input_dt)
+
+draw_situation(
+  input_dt,
+  l$geom_z1,
+  l$geom_z2,
+  threshold = 11,
+  list_z2_to_color = z2_to_tag[tag == TRUE]$z2  
+               ) 
+```
+
+## Vérification résultats
+
+il y a un carreau vert de blanchi, ce dernier a t'il été blanchi par Julien sur griddy ?
+
+```{r}
+# récupération du nombre d'individus par z2 ?
+z2_to_nb_obs <- clean_init_dt(data_rp)[,.(nb_obs = sum(nb_obs)), by  = "z2"]
+z2_to_tag_obs <- merge(z2_to_tag,z2_to_nb_obs,by = "z2")
+
+z2_to_tag_obs[tag == TRUE & nb_obs >11]
+
+z2_sup_seuil <- z2_to_tag_obs[tag == TRUE & nb_obs >11]$z2
+```
+
+```{r}
+load("resultat_brut_gridy_individus.RData")
+
+carreaux_griddy <- tab_GS$tab_car
+emboitement <- tab_GS$tab_arb # contient les liens vers les niveux suivants, le niveau 6 est le niveau le plus fin après le noiveau "petit"
+
+table(sapply(split(emboitement$id_carreau_petit,emboitement$id_carreau_niv6),length))
+
+carreaux_griddy[id_carreau %in% z2_sup_seuil] # ici un seul des deux est effectivement blanchi par griddy..
+```
+
+Pour la suite. : il semble y a voir beaucoup trop de cas où on peut reconstruire une zone interne ou externe avec une somme de carreaux de niveau supérieur !!
+
+## Application de l'algo sur le data set entier :
+
+D'abord la composante numéro 1 toute seule (tourne en 10 h..)
+(cf 10000 zones à checker 1.5 secondes par zones = 15000 sec )
+```{r}
+Sys.time()
+z2_to_tag_big_compo <-protect_component(1,global_diff_info,data_rp,emboitement = emboitement)
+Sys.time()
+saveRDS(z2_to_tag_big_compo,"z2_to_tag_big_compo.rds")
+
+#10720 zones dans la grosse composante
+```
+
+Puis les autres (beaucoup plus rapide..)
+
+
+```{r}
+install.packages("pbapply")
+library(pbapply)
+
+# 10 min
+l <- pblapply(rev(comp_to_nb_com$id_comp),function(num_comp){
+ if(num_comp ==1) return(NULL)
+  # num_comp <- 263
+  #print(num_comp)
+ protect_component(num_comp,global_diff_info,data_rp,emboitement = emboitement)
+})
+
+res <- do.call(rbind,l)
+res <-rbind(z2_to_tag_big_compo,res)
+
+```
