@@ -138,7 +138,8 @@ load("resultat_brut_gridy_individus.RData")
 carreaux_griddy <- tab_GS$tab_car
 emboitement <- tab_GS$tab_arb # contient les liens vers les niveux suivants, le niveau 6 est le niveau le plus fin après le noiveau "petit"
 
-table(sapply(split(emboitement$id_carreau_petit,emboitement$id_carreau_niv6),length))
+emboitement <- emboitement[,c("id_carreau_petit","id_carreau_niv6")]
+colnames(emboitement)<- c("z2","z2_sup")
 
 carreaux_griddy[id_carreau %in% z2_sup_seuil] # ici un seul des deux est effectivement blanchi par griddy..
 ```
@@ -166,14 +167,43 @@ install.packages("pbapply")
 library(pbapply)
 
 # 10 min
-l <- pblapply(rev(comp_to_nb_com$id_comp),function(num_comp){
+l <- pblapply(rev(comp_to_nb_com$id_comp[20:25]),function(num_comp){
  if(num_comp ==1) return(NULL)
   # num_comp <- 263
   #print(num_comp)
  protect_component(num_comp,global_diff_info,data_rp,emboitement = emboitement)
 })
 
-res <- do.call(rbind,l)
+res <-do.call(rbind,l)
 res <-rbind(z2_to_tag_big_compo,res)
+
+saveRDS(res,"z2_to_tag.rds")
+
+
+```
+
+```{r}
+z2_to_tag <- res
+z2_to_nb_obs <- clean_init_dt(data_rp)[,.(nb_obs = sum(nb_obs)), by  = "z2"]
+z2_to_tag_obs <- merge(z2_to_tag,z2_to_nb_obs,by = "z2")
+
+z2_to_tag_obs[tag == TRUE & nb_obs >11]
+
+z2_sup_seuil <- z2_to_tag_obs[tag == TRUE & nb_obs >11]$z2 #2343
+
+carreaux_griddy[id_carreau %in% z2_sup_seuil] %>% 
+  group_by(etat) %>% 
+  summarise(compte = n()) # 1053 protégés par griddy déjà ..
+
+```
+
+```{r}
+
+emboitement <- emboitement %>% 
+  group_by(z2_sup) %>% 
+  mutate(nfils = n()) 
+
+area_issue <- global_diff_info  
+
 
 ```

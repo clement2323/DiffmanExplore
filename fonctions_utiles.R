@@ -151,39 +151,36 @@ protect_component <- function(num_comp,global_diff_info,data_rp,emboitement,thre
   dt <- copy(data_rp)
   list_z1_compo<- compo$z1[compo$id_comp == num_comp]
   input_dt <- clean_init_dt(dt[z1 %in% list_z1_compo])
-  
   z2_to_tag <- data.table(z2  = unique(input_dt$z2), tag  = FALSE)
   
-  # z2_to_tag <- data.table(z2  = unique(input_dt$z2), tag  = FALSE, tag_sup = FALSE)
-  # z2_to_z2_sup <- emboitement[,c("id_carreau_petit","id_carreau_niv6")]
-  # colnames(z2_to_z2_sup)<- c("z2","z2_sup")
-  # z2_to_tag<- merge(z2_to_tag,z2_to_z2_sup,by = "z2")
-  
   fully_included_z2<- diffman:::prepare_data(input_dt)$fully_included_z2
-  
   z2_to_tag$full_incl <- z2_to_tag$z2 %in% unique(fully_included_z2$z2)
-  
   comp_diff_info <- global_diff_info[id_comp == num_comp]
   
-  if(nrow(comp_diff_info)==0) return(NULL) 
-  # enorme sur la grosse composante -> affiner ?
+  if(nrow(comp_diff_info)==0) return(NULL)  # Je build ici la table avectoutes les internal différences
   complete_internal_diff_info <- build_complete_internal_table(comp_diff_info,list_z1_compo)
+  
   #### Et voici l'algorithme !!
   l <- split(complete_internal_diff_info,complete_internal_diff_info$checked_area)
-  #length(l)
-  #length(unique(paste0(complete_internal_diff_info$z1,complete_internal_diff_info$z2)))
   i <-1
-  #if(num_comp == 1){print("debut de la boucle")}
-  for(area_issue in l){
-    if (i%%200 == 0) print(i)
-    #print(i) 
-    i <- i+1
-     
-    # dégager les carreaux déjà blanchis dans chaque zone et 
-    #print(unique(area_issue$checked_area))
-    #area_issue <- l[[1]]
-     # area_issue <-   l$`15200`
   
+  for(area_issue in l){
+    # area_issue <- l[[1]]
+    # area_issue <-   l$`15200`
+    
+    if (i%%200 == 0) print(i)
+    i <- i+1
+    
+    z2_to_tag <- actualiser_z2_to_tag(area_issue,list_z1_compo,input_dt,z2_to_tag) 
+     
+  } # fin de la boucle 
+  return(z2_to_tag)
+}
+
+# Je protège ici une zone à risque de différenciation obtenue via une checked area donnée
+actualiser_z2_to_tag <- function(area_issue,list_z1_compo,input_dt,z2_to_tag){
+    
+    z2_to_tag <- copy(z2_to_tag)
     nb_obs_at_risk <- sum(area_issue$nb_obs)
     nb_to_add <- threshold - nb_obs_at_risk
     
@@ -198,7 +195,6 @@ protect_component <- function(num_comp,global_diff_info,data_rp,emboitement,thre
     # il faut récupérer le tag !!
     z2_full_incl <- merge(z2_full_incl,z2_to_tag,by ="z2")[order(nb_obs)]
     
-    
     # On définit  z2_full_excl par le complémentaire et on fait passer la table au niveau carreau (cf intersection prises en compte)
     z2_full_excl <- 
       input_dt[!paste0(z1,z2) %in% paste0(z2_full_incl$z1,z2_full_incl$z2)][,.(nb_obs = sum(nb_obs)), by = "z2"]# la zone a risque
@@ -210,6 +206,7 @@ protect_component <- function(num_comp,global_diff_info,data_rp,emboitement,thre
     nb_to_add_full_excl <- nb_to_add - sum(z2_full_excl$nb_obs[z2_full_excl$tag])
     
     if(nb_to_add_full_incl >0 & nrow(z2_full_incl) > 0 ){
+      
       z2_full_incl <- z2_full_incl[tag == FALSE]
       z2_full_incl[,cum_nb_obs := cumsum(nb_obs)]
       z2_full_incl[,higher := cum_nb_obs>=nb_to_add_full_incl]
@@ -247,14 +244,29 @@ protect_component <- function(num_comp,global_diff_info,data_rp,emboitement,thre
     
     z2_to_tag[z2 %in% c(z2_to_mask_incl,z2_to_mask_excl)]$tag <- TRUE
     
-    # verifier que l'on ne peut reconstruire les zones interne avec les carreaux de niveau supérieur
-    # il suffit de faire une fusion entre les deux zones, si elle est non vide on a gagné sinon il faut blanchir au niveau au dessus 
-    
-    #merge_z2_sup <-merge(z2_full_excl,z2_full_incl,by ="z2_sup")
-    # arrive beaucoup trop souvent..
-    
-    #if(nrow(merge_z2_sup==0)){print(paste0("level sup issue for area ",i))}
-  
-  } # fin de la boucle 
-  return(z2_to_tag)
+    return(z2_to_tag)
 }
+
+
+
+gestion_emboitement <- function(emboitement,z2_to_tag ){
+  emboitement
+  
+}
+
+# comp_to_nb_com
+# num_comp <- 263
+
+# z2_to_tag <- data.table(z2  = unique(input_dt$z2), tag  = FALSE, tag_sup = FALSE)
+# z2_to_z2_sup <- emboitement[,c("id_carreau_petit","id_carreau_niv6")]
+# colnames(z2_to_z2_sup)<- c("z2","z2_sup")
+# z2_to_tag<- merge(z2_to_tag,z2_to_z2_sup,by = "z2")
+
+
+# verifier que l'on ne peut reconstruire les zones interne avec les carreaux de niveau supérieur
+# il suffit de faire une fusion entre les deux zones, si elle est non vide on a gagné sinon il faut blanchir au niveau au dessus 
+
+# merge_z2_sup <-merge(z2_full_excl,z2_full_incl,by ="z2_sup")
+# arrive beaucoup trop souvent..
+# if(nrow(merge_z2_sup==0)){print(paste0("level sup issue for area ",i))}
+
