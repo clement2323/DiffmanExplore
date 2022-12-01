@@ -143,19 +143,19 @@ build_complete_internal_table <- function(comp_diff_info,list_z1_compo){
 # diffman ne sort pas touts les types de differenciation par exemple la commune 26267 ne sort pas mais son complémentaire oui donc pas grave..
 # fonction proteger compo qui balai toutes les cheqck area blanchi de aprt et autres de la ckeked area (dans son complémentaire aussi) on blanchit jusqu'à ce que la différence dépasse 11
 
-protect_component <- function(num_comp,global_diff_info,data_rp,emboitement,threshold =11){ 
+protect_component <- function(num_comp,global_diff_info,data_rp,z2_to_tag,threshold =11){ 
   # comp_to_nb_com
-  # num_comp <- 263
+  # num_comp <- 997
   # chevauchant => pas de diff_interne possible mais une diff externe possible ici on traite ce sous cas ici
   
   dt <- copy(data_rp)
   list_z1_compo<- compo$z1[compo$id_comp == num_comp]
   input_dt <- clean_init_dt(dt[z1 %in% list_z1_compo])
-  z2_to_tag <- data.table(z2  = unique(input_dt$z2), tag  = FALSE)
   
   fully_included_z2<- diffman:::prepare_data(input_dt)$fully_included_z2
   z2_to_tag$full_incl <- z2_to_tag$z2 %in% unique(fully_included_z2$z2)
   comp_diff_info <- global_diff_info[id_comp == num_comp]
+  comp_diff_info$checked_area_size <- NULL
   
   if(nrow(comp_diff_info)==0) return(NULL)  # Je build ici la table avectoutes les internal différences
   complete_internal_diff_info <- build_complete_internal_table(comp_diff_info,list_z1_compo)
@@ -179,28 +179,16 @@ protect_component <- function(num_comp,global_diff_info,data_rp,emboitement,thre
 
 # Je protège ici une zone à risque de différenciation obtenue via une checked area donnée
 actualiser_z2_to_tag <- function(area_issue,list_z1_compo,input_dt,z2_to_tag){
-    
+    # threshold = 11
     z2_to_tag <- copy(z2_to_tag)
     nb_obs_at_risk <- sum(area_issue$nb_obs)
     nb_to_add <- threshold - nb_obs_at_risk
     
     # en amont récupérer 
-    z1_in_area <-unlist(strsplit(unique(as.character(area_issue$checked_area)),"-"))
-    z1_out_area <- setdiff(list_z1_compo,z1_in_area)  
+    l <- calculer_zone_interne_externe(area_issue,list_z1_compo,z2_to_tag)
+    z2_full_incl <- l$z2_full_incl
+    z2_full_excl <- l$z2_full_excl
     
-    #On se limite au blanchiment des full_incl quand on regarde la differenciation interne
-    z2_full_incl <-input_dt[z1 %in% z1_in_area & z2 %in% z2_to_tag[full_incl == TRUE]$z2] 
-    # Rq : on a bien 1 commune pour 1 carreau ici par definition des z2 totalement inclus
-    
-    # il faut récupérer le tag !!
-    z2_full_incl <- merge(z2_full_incl,z2_to_tag,by ="z2")[order(nb_obs)]
-    
-    # On définit  z2_full_excl par le complémentaire et on fait passer la table au niveau carreau (cf intersection prises en compte)
-    z2_full_excl <- 
-      input_dt[!paste0(z1,z2) %in% paste0(z2_full_incl$z1,z2_full_incl$z2)][,.(nb_obs = sum(nb_obs)), by = "z2"]# la zone a risque
-   
-    z2_full_excl <- merge(z2_full_excl,z2_to_tag,by ="z2")[order(nb_obs)]
-  
     # je réadapte le nb en fonction de ce qui a été blanchit déjà et je supprimeai les lignes dans la table après
     nb_to_add_full_incl <- nb_to_add - sum(z2_full_incl$nb_obs[z2_full_incl$tag])
     nb_to_add_full_excl <- nb_to_add - sum(z2_full_excl$nb_obs[z2_full_excl$tag])
@@ -221,7 +209,7 @@ actualiser_z2_to_tag <- function(area_issue,list_z1_compo,input_dt,z2_to_tag){
       z2_to_mask_incl <- z2_full_incl$z2[ind_z2]
       }
     }
-    
+    # RAJOUTER CONDITION  SUR LA TAILLE DE LA ZONE EXTERNE ICI POUR SAVOIR SI ONLA PROTEGE AUSSI
     if(nb_to_add_full_excl >0 & nrow(z2_full_excl)> 0 ){
       
       z2_full_excl <- z2_full_excl[tag == FALSE]
@@ -259,23 +247,19 @@ calculer_zone_interne_externe <- function(area_issue,list_z1_compo,z2_to_tag){
   z2_full_incl <-input_dt[z1 %in% z1_in_area & z2 %in% z2_to_tag[full_incl == TRUE]$z2] 
   # Rq : on a bien 1 commune pour 1 carreau ici par definition des z2 totalement inclus
   
-  # il faut récupérer le tag !!
-  z2_full_incl <- merge(z2_full_incl,z2_to_tag,by ="z2")[order(nb_obs)]
-  
+
   # On définit  z2_full_excl par le complémentaire et on fait passer la table au niveau carreau (cf intersection prises en compte)
   z2_full_excl <- 
-    input_dt[!paste0(z1,z2) %in% paste0(z2_full_incl$z1,z2_full_incl$z2)][,.(nb_obs = sum(nb_obs)), by = "z2"]# la zone a risque
+    input_dt[!paste0(z1,z2) %in% paste0(z2_full_incl$z1,z2_full_incl$z2)]# la zone a risque
   
-  z2_full_excl <- merge(z2_full_excl,z2_to_tag,by ="z2")[order(nb_obs)]
+  # il faut récupérer le tag !!
+  z2_full_incl <- merge(z2_full_incl,z2_to_tag,by ="z2")[,.(nb_obs = sum(nb_obs)), by = "z2"][order(nb_obs)]
+  z2_full_excl <- merge(z2_full_excl,z2_to_tag,by ="z2")[,.(nb_obs = sum(nb_obs)), by = "z2"][order(nb_obs)]
   
   return(list(z2_full_incl = z2_full_incl, z2_full_excl = z2_full_excl))
 }
 
 
-gestion_emboitement <- function(emboitement,z2_to_tag ){
-  emboitement
-  
-}
 
 # comp_to_nb_com
 # num_comp <- 263

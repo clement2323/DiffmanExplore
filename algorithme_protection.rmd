@@ -22,6 +22,9 @@ mc cp s3/cguillo/commune_franceentiere_2021.shx ext_data/commune_franceentiere_2
 mc cp s3/cguillo/data_rp.rds ext_data/data_rp.rds
 mc cp s3/cguillo/data_rp.rds DiffmanExplore/data_rp.rds
 mc cp s3/cguillo/resultat_brut_gridy_individus.RData resultat_brut_gridy_individus.RData
+mc cp recursive s3/cguillo/diff_info 
+
+mc cp recursive s3/cguillo/diff_info 
 
 ## Intro 
 Ici, j'applique directement l'algorithme de protection sur les carreaux sensibles détectés par griddy
@@ -74,19 +77,15 @@ le nombre de carreaux blanchis en + par rapport à griddy -> griddy nous donne d
 le nombre de fois où on peut reconstruire intégralement une zone interne ou externe problématique à l'aide de la concaténation des carreaux supras.  
 
 **Lecture des sorties diffman**
-```{r}
-input_dt <- data_rp
-global_diff_info <- read_diff_info("diff_info")
-global_diff_info <- global_diff_info[!is.na(nb_obs)]
-head(global_diff_info)
-
-```
 
 ## Chargement des données
 
 ```{r}
 communes <-sf::st_read("ext_data/commune_franceentiere_2021.shp")
 data_rp <- data.table(readRDS("ext_data/data_rp.rds"))
+input_dt <- data_rp
+input_dt <- clean_init_dt(input_dt)
+
 compo <- return_connected_components(data_rp)
 comp_to_nb_com <- compo[,.(nb_com = length(z1)),by ="id_comp"][rev(order(nb_com)),]
 comp_to_nb_com
@@ -102,8 +101,7 @@ list_z1 <- compo$z1[compo$id_comp == num_comp ]
 comp_diff_info <- global_diff_info[id_comp == num_comp ]
 
 # application de l'algo
-
-#z2_to_tag <- protect_component(num_comp,global_diff_info,data_rp)
+# z2_to_tag <- protect_component(num_comp,global_diff_info,data_rp)
 list_z1 <- compo[id_comp == num_comp]$z1
 
 input_dt <- clean_init_dt(data_rp[z1 %in% list_z1])
@@ -118,19 +116,30 @@ draw_situation(
                ) 
 ```
 
-## Vérification résultats
+```{r}
 
-il y a un carreau vert de blanchi, ce dernier a t'il été blanchi par Julien sur griddy ?
+all_component_risk_extraction(
+  input_dt,
+  threshold = 11,
+  max_agregate_size = 15,
+  save_dir = "diff_info"
+  )
+
+```
 
 ```{r}
-# récupération du nombre d'individus par z2 ?
-z2_to_nb_obs <- clean_init_dt(data_rp)[,.(nb_obs = sum(nb_obs)), by  = "z2"]
-z2_to_tag_obs <- merge(z2_to_tag,z2_to_nb_obs,by = "z2")
-
-z2_to_tag_obs[tag == TRUE & nb_obs >11]
-
-z2_sup_seuil <- z2_to_tag_obs[tag == TRUE & nb_obs >11]$z2
+global_diff_info <- read_diff_info("diff_info")
+global_diff_info <- global_diff_info[!is.na(nb_obs)]
+global_diff_info$checked_area_size <- sapply(strsplit(global_diff_info$checked_area,"-"),length)
+summary(global_diff_info$checked_area_size)
 ```
+
+## Application protectionpost griddy
+
+On va prendre les résultats de griddy sur les petits carreaux de julien en apriori, par exemple dans z2_to_tag et on va poser le secreten fonction en gardant le même algorithme, si ce n'est que l'on va limiter la protection aux problèmes de différenciation de taille n avec n ==...
+
+Truc intéressant : regarder la distribution de la taille des checked area en termes de nombre de z1
+
 
 ```{r}
 load("resultat_brut_gridy_individus.RData")
@@ -138,10 +147,17 @@ load("resultat_brut_gridy_individus.RData")
 carreaux_griddy <- tab_GS$tab_car
 emboitement <- tab_GS$tab_arb # contient les liens vers les niveux suivants, le niveau 6 est le niveau le plus fin après le noiveau "petit"
 
-emboitement <- emboitement[,c("id_carreau_petit","id_carreau_niv6")]
-colnames(emboitement)<- c("z2","z2_sup")
+z2_to_tag <- carreaux_griddy[niveau == 7][,c("id_carreau","etat","nb_obs")]
+colnames(z2_to_tag)<- c("z2","tag","nb_obs")
+.
+```
 
-carreaux_griddy[id_carreau %in% z2_sup_seuil] # ici un seul des deux est effectivement blanchi par griddy..
+```{r}
+# Ok limiter le taf aux zones interne <5 et ne pas blanchir dans les zones externes trop grand n_compo- n_zone externe < 5 "moyen raisonnable"
+# faire partir le code de z2_to_tag qui vient de griddy
+# intégrer l'extraction des zones full_incl etc..
+
+
 ```
 
 Pour la suite. : il semble y a voir beaucoup trop de cas où on peut reconstruire une zone interne ou externe avec une somme de carreaux de niveau supérieur !!
@@ -221,15 +237,7 @@ emboitement <- emboitement %>%
   
   ## on fait une check area
   area_issue <- l[[1]]
-  
-  
-  
-  
-  
   # je construis
-  
-  
-  
   
   fully_included_z2<- diffman:::prepare_data(input_dt)$fully_included_z2
   z2_to_tag$full_incl <- z2_to_tag$z2 %in% unique(fully_included_z2$z2)
@@ -237,6 +245,32 @@ emboitement <- emboitement %>%
   
   if(nrow(comp_diff_info)==0) return(NULL)  # Je build ici la table avectoutes les internal différences
   
-  
+
+
+```
+
+
+```{r}
+# récupération du nombre d'individus par z2 ?
+z2_to_nb_obs <- clean_init_dt(data_rp)[,.(nb_obs = sum(nb_obs)), by  = "z2"]
+z2_to_tag_obs <- merge(z2_to_tag,z2_to_nb_obs,by = "z2")
+z2_to_tag_obs[tag == TRUE & nb_obs >11]
+z2_sup_seuil <- z2_to_tag_obs[tag == TRUE & nb_obs >11]$z2
+```
+
+
+```{r}
+
+
+
+# controle même nombre de ménages par carreaux 
+# z2_test <- input_dt[,.(nb_obs = sum(nb_obs)), by = "z2"]
+# merge(z2_to_tag,z2_test,by.x = "id_carreau",by.y = "z2")[nb_obs.x != nb_obs.y]
+#[,.(nb_obs = sum(nb_obs)), by = "z2"]
+
+# emboitement <- emboitement[,c("id_carreau_petit","id_carreau_niv6")]
+# colnames(emboitement)<- c("z2","z2_sup")
+# 
+# carreaux_griddy[id_carreau %in% z2_sup_seuil] # ici un seul des deux est effectivement blanchi par griddy.
 
 ```
