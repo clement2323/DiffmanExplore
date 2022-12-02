@@ -94,26 +94,17 @@ comp_to_nb_com
 
 ## Travail sur une composante :
 On va regarder dans la composante 387 et ses 80 communes :
+
 ```{r}
-num_comp <- 263
-threshold <- 11
-list_z1 <- compo$z1[compo$id_comp == num_comp ]
-comp_diff_info <- global_diff_info[id_comp == num_comp ]
+load("resultat_brut_gridy_individus.RData")
 
-# application de l'algo
-# z2_to_tag <- protect_component(num_comp,global_diff_info,data_rp)
-list_z1 <- compo[id_comp == num_comp]$z1
+carreaux_griddy <- tab_GS$tab_car
+emboitement <- tab_GS$tab_arb # contient les liens vers les niveux suivants, le niveau 6 est le niveau le plus fin après le noiveau "petit"
 
-input_dt <- clean_init_dt(data_rp[z1 %in% list_z1])
-l<- preparer_geom(input_dt)
-
-draw_situation(
-  input_dt,
-  l$geom_z1,
-  l$geom_z2,
-  threshold = 11,
-  list_z2_to_color = z2_to_tag[tag == TRUE]$z2  
-               ) 
+z2_to_tag_global <- carreaux_griddy[niveau == 7][,c("id_carreau","etat","nb_obs")]
+colnames(z2_to_tag_global)<- c("z2","tag","nb_obs")
+z2_to_tag_global[,tag:= !tag]
+head(z2_to_tag_global)
 ```
 
 ```{r}
@@ -135,24 +126,41 @@ global_diff_info$checked_area_size <- sapply(strsplit(global_diff_info$checked_a
 summary(global_diff_info$checked_area_size)
 ```
 
+Représentation graphique
+```{r}
+num_comp <- 263
+threshold <- 11
+list_z1 <- compo$z1[compo$id_comp == num_comp ]
+comp_diff_info <- global_diff_info[id_comp == num_comp ]
+
+# application de l'algo
+z2_to_tag <- protect_component(
+  num_comp = num_comp,
+  global_diff_info = global_diff_info,
+  data_rp = dat_rp,
+  z2_to_tag_global = z2_to_tag_global,
+  threshold =11, checked_area_max_size = 3
+  )
+list_z1 <- compo[id_comp == num_comp]$z1
+
+input_dt <- clean_init_dt(data_rp[z1 %in% list_z1])
+l<- preparer_geom(input_dt)
+
+draw_situation(
+  input_dt,
+  l$geom_z1,
+  l$geom_z2,
+  threshold = 11,
+  list_z2_to_color = z2_to_tag[tag == TRUE]$z2  
+               ) 
+```
+
 ## Application protectionpost griddy
 
 On va prendre les résultats de griddy sur les petits carreaux de julien en apriori, par exemple dans z2_to_tag et on va poser le secreten fonction en gardant le même algorithme, si ce n'est que l'on va limiter la protection aux problèmes de différenciation de taille n avec n ==...
 
 Truc intéressant : regarder la distribution de la taille des checked area en termes de nombre de z1
 
-
-```{r}
-load("resultat_brut_gridy_individus.RData")
-
-carreaux_griddy <- tab_GS$tab_car
-emboitement <- tab_GS$tab_arb # contient les liens vers les niveux suivants, le niveau 6 est le niveau le plus fin après le noiveau "petit"
-
-z2_to_tag_global <- carreaux_griddy[niveau == 7][,c("id_carreau","etat","nb_obs")]
-colnames(z2_to_tag_global)<- c("z2","tag","nb_obs")
-z2_to_tag_global[,tag:= !tag]
-head(z2_to_tag_global)
-```
 
 ```{r}
 # Ok limiter le taf aux zones interne <5 et ne pas blanchir dans les zones externes trop grand n_compo- n_zone externe < 5 "moyen raisonnable"
@@ -179,6 +187,7 @@ library(pbapply)
 
 # 10 min
 proteger_diffman <- function(max_size){
+  Sys.time()
   print(max_size)
   l <- pblapply(rev(comp_to_nb_com$id_comp),function(num_comp){
     # num_comp <- 263
@@ -195,6 +204,7 @@ proteger_diffman <- function(max_size){
   res <-do.call(rbind,l)
 
   saveRDS(res,paste0("z2_to_tag_",max_size,".rds"))
+  Sys.time()
   # z2_to_tag <- readRDS(file = "z2_to_tag.rds")
 }
 sapply(seq(2:5),proteger_diffman)
