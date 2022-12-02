@@ -81,6 +81,10 @@ le nombre de fois où on peut reconstruire intégralement une zone interne ou ex
 ## Chargement des données
 
 ```{r}
+source("fonctions_utiles.R")
+```
+
+```{r}
 communes <-sf::st_read("ext_data/commune_franceentiere_2021.shp")
 data_rp <- data.table(readRDS("ext_data/data_rp.rds"))
 input_dt <- data_rp
@@ -137,8 +141,8 @@ comp_diff_info <- global_diff_info[id_comp == num_comp ]
 z2_to_tag <- protect_component(
   num_comp = num_comp,
   global_diff_info = global_diff_info,
-  data_rp = dat_rp,
-  z2_to_tag_global = z2_to_tag_global,
+  data_rp = data_rp,
+  z2_to_tag = z2_to_tag_global,
   threshold =11, checked_area_max_size = 3
   )
 list_z1 <- compo[id_comp == num_comp]$z1
@@ -155,7 +159,7 @@ draw_situation(
                ) 
 ```
 
-## Application protectionpost griddy
+## Application protection post griddy
 
 On va prendre les résultats de griddy sur les petits carreaux de julien en apriori, par exemple dans z2_to_tag et on va poser le secreten fonction en gardant le même algorithme, si ce n'est que l'on va limiter la protection aux problèmes de différenciation de taille n avec n ==...
 
@@ -211,7 +215,7 @@ sapply(seq(2:5),proteger_diffman)
 
 
 ```
-
+TODO : BIEN DIFFERENCIER LES CARREAUX GRIDDY DES CARREAUX NON GRIDDY DANS LES RER2SENTATIONS ?
 ```{r}
 z2_to_tag <-
 z2_to_nb_obs <- clean_init_dt(data_rp)[,.(nb_obs = sum(nb_obs)), by  = "z2"]
