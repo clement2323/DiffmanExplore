@@ -125,6 +125,7 @@ all_component_risk_extraction(
   save_dir = "diff_info"
   )
 
+
 ```
 
 ```{r}
@@ -149,7 +150,8 @@ emboitement <- tab_GS$tab_arb # contient les liens vers les niveux suivants, le 
 
 z2_to_tag <- carreaux_griddy[niveau == 7][,c("id_carreau","etat","nb_obs")]
 colnames(z2_to_tag)<- c("z2","tag","nb_obs")
-.
+z2_to_tag[,tag:= !tag]
+head(z2_to_tag)
 ```
 
 ```{r}
@@ -168,7 +170,7 @@ D'abord la composante numéro 1 toute seule (tourne en 10 h..)
 (cf 10000 zones à checker 1.5 secondes par zones = 15000 sec )
 ```{r}
 Sys.time()
-z2_to_tag_big_compo <-protect_component(1,global_diff_info,data_rp,emboitement = emboitement)
+z2_to_tag_big_compo <-protect_component(1,global_diff_info,data_rp)
 Sys.time()
 saveRDS(z2_to_tag_big_compo,"z2_to_tag_big_compo.rds")
 
