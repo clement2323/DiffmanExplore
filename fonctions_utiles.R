@@ -144,16 +144,20 @@ build_complete_internal_table <- function(comp_diff_info,list_z1_compo){
 # diffman ne sort pas touts les types de differenciation par exemple la commune 26267 ne sort pas mais son complémentaire oui donc pas grave..
 # fonction proteger compo qui balai toutes les cheqck area blanchi de aprt et autres de la ckeked area (dans son complémentaire aussi) on blanchit jusqu'à ce que la différence dépasse 11
 
-protect_component <- function(num_comp,global_diff_info,data_rp,z2_to_tag,threshold =11, checked_area_max_size = 3){ 
+protect_component <- function(num_comp,global_diff_info,data_rp,z2_to_tag_global,threshold =11, checked_area_max_size = 3){ 
   # comp_to_nb_com
   # num_comp <- 23
   # chevauchant => pas de diff_interne possible mais une diff externe possible ici on traite ce sous cas ici
   
   dt <- copy(data_rp)
+  z2_to_tag <- copy(z2_to_tag_global)
+  
   list_z1_compo<- compo$z1[compo$id_comp == num_comp]
   input_dt <- clean_init_dt(dt[z1 %in% list_z1_compo])
   
   fully_included_z2<- diffman:::prepare_data(input_dt)$fully_included_z2
+  z2_to_tag <- z2_to_tag[z2 %in% input_dt$z2]
+  
   z2_to_tag$full_incl <- z2_to_tag$z2 %in% unique(fully_included_z2$z2)
   
   comp_diff_info <- global_diff_info[id_comp == num_comp]
@@ -172,15 +176,16 @@ protect_component <- function(num_comp,global_diff_info,data_rp,z2_to_tag,thresh
   
   # je m'arrête aux cas suffisamment petits 
   complete_internal_diff_info <- complete_internal_diff_info[internal_checked_area_size <= checked_area_max_size | external_checked_area_size <= checked_area_max_size]
+  
   #### Et voici l'algorithme !!
   l <- split(complete_internal_diff_info,complete_internal_diff_info$checked_area)
   i <-1
-  
+
   for(area_issue in l){
     # area_issue <- l[[1]]
     # area_issue <-   l$`15200`
     
-    if (i%%200 == 0) print(i)
+    if (i%%10 == 0) print(i)
     i <- i+1
     
     z2_to_tag <- actualiser_z2_to_tag(area_issue,list_z1_compo,input_dt,z2_to_tag,checked_area_max_size) 
@@ -192,7 +197,7 @@ protect_component <- function(num_comp,global_diff_info,data_rp,z2_to_tag,thresh
 # Je protège ici une zone à risque de différenciation obtenue via une checked area donnée
 actualiser_z2_to_tag <- function(area_issue,list_z1_compo,input_dt,z2_to_tag,checked_area_max_size){
     # threshold = 11
-    z2_to_tag <- copy(z2_to_tag)
+    # z2_to_tag <- copy(z2_to_tag)
     nb_obs_at_risk <- sum(area_issue$nb_obs)
     nb_to_add <- threshold - nb_obs_at_risk
     
@@ -267,7 +272,7 @@ calculer_zone_interne_externe <- function(area_issue,list_z1_compo,z2_to_tag){
   
   
   # On définit  z2_full_excl par le complémentaire et on fait passer la table au niveau carreau (cf intersection prises en compte)
-  z2_full_excl <- 
+  z2_full_excl <-  
     input_dt[!paste0(z1,z2) %in% paste0(z2_full_incl$z1,z2_full_incl$z2)]# la zone a risque
   
   # il faut récupérer le tag !!
