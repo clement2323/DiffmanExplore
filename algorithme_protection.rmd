@@ -168,19 +168,7 @@ Pour la suite. : il semble y a voir beaucoup trop de cas où on peut reconstruir
 
 D'abord la composante numéro 1 toute seule (tourne en 10 h..)
 (cf 10000 zones à checker 1.5 secondes par zones = 15000 sec )
-```{r}
-Sys.time()
-z2_to_tag_big_compo <-protect_component(
-  num_comp = 1,
-  global_diff_info = global_diff_info,
-  data_rp = data_rp,
-  z2_to_tag_global = z2_to_tag_global,
-  checked_area_max_size = 5)
-Sys.time()
-saveRDS(z2_to_tag_big_compo,"z2_to_tag_big_compo.rds")
 
-#10720 zones dans la grosse composante
-```
 
 Puis les autres (beaucoup plus rapide..)
 
@@ -205,7 +193,6 @@ proteger_diffman <- function(max_size){
   )
 
   res <-do.call(rbind,l)
-  res <-rbind(z2_to_tag_big_compo,res)
 
   saveRDS(res,paste0("z2_to_tag_",max_size,".rds"))
   # z2_to_tag <- readRDS(file = "z2_to_tag.rds")
@@ -216,7 +203,7 @@ sapply(seq(2:5),proteger_diffman)
 ```
 
 ```{r}
-z2_to_tag <- res
+z2_to_tag <-
 z2_to_nb_obs <- clean_init_dt(data_rp)[,.(nb_obs = sum(nb_obs)), by  = "z2"]
 z2_to_tag_obs <- merge(z2_to_tag,z2_to_nb_obs,by = "z2")
 
