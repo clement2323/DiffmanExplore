@@ -185,7 +185,7 @@ protect_component <- function(num_comp,global_diff_info,data_rp,z2_to_tag_global
     # area_issue <- l[[1]]
     # area_issue <-   l$`15200`
     
-    if (i%%10 == 0) print(i)
+    if (num_comp == 1 & i%%100 == 0) print(i)
     i <- i+1
     
     z2_to_tag <- actualiser_z2_to_tag(area_issue,list_z1_compo,input_dt,z2_to_tag,checked_area_max_size) 

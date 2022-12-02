@@ -190,19 +190,28 @@ install.packages("pbapply")
 library(pbapply)
 
 # 10 min
-l <- pblapply(rev(comp_to_nb_com$id_comp[20:25]),function(num_comp){
- if(num_comp ==1) return(NULL)
-  # num_comp <- 263
-  #print(num_comp)
- protect_component(num_comp,global_diff_info,data_rp,emboitement = emboitement)
-})
+proteger_diffman <- function(max_size){
+  print(max_size)
+  l <- pblapply(rev(comp_to_nb_com$id_comp),function(num_comp){
+    # num_comp <- 263
+    #print(num_comp)
+    protect_component(
+    num_comp = num_comp,
+    global_diff_info = global_diff_info,
+    data_rp = data_rp,
+    z2_to_tag_global = z2_to_tag_global,
+    checked_area_max_size = max_size)
+  }
+  )
 
-res <-do.call(rbind,l)
-res <-rbind(z2_to_tag_big_compo,res)
+  res <-do.call(rbind,l)
+  res <-rbind(z2_to_tag_big_compo,res)
 
-saveRDS(res,"z2_to_tag.rds")
+  saveRDS(res,paste0("z2_to_tag_",max_size,".rds"))
+  # z2_to_tag <- readRDS(file = "z2_to_tag.rds")
+}
+sapply(seq(2:5),proteger_diffman)
 
-z2_to_tag <- readRDS(file = "z2_to_tag.rds")
 
 ```
 
