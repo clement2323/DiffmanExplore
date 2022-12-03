@@ -251,8 +251,6 @@ actualiser_z2_to_tag <- function(area_issue,list_z1_compo,input_dt,z2_to_tag,che
       z2_to_mask_excl <- z2_full_excl$z2[ind_z2]
       }
     }
-    # carreaux dans la zone (il faut blanchir jusqu'à 11-nbobs atrisk)
-    
     z2_to_tag[z2 %in% c(z2_to_mask_incl,z2_to_mask_excl)]$tag <- TRUE
     
     return(z2_to_tag)
@@ -285,21 +283,4 @@ calculer_zone_interne_externe <- function(area_issue,list_z1_compo,z2_to_tag){
   return(list(z2_full_incl = z2_full_incl, z2_full_excl = z2_full_excl))
 }
 
-
-
-# comp_to_nb_com
-# num_comp <- 263
-
-# z2_to_tag <- data.table(z2  = unique(input_dt$z2), tag  = FALSE, tag_sup = FALSE)
-# z2_to_z2_sup <- emboitement[,c("id_carreau_petit","id_carreau_niv6")]
-# colnames(z2_to_z2_sup)<- c("z2","z2_sup")
-# z2_to_tag<- merge(z2_to_tag,z2_to_z2_sup,by = "z2")
-
-
-# verifier que l'on ne peut reconstruire les zones interne avec les carreaux de niveau supérieur
-# il suffit de faire une fusion entre les deux zones, si elle est non vide on a gagné sinon il faut blanchir au niveau au dessus 
-
-# merge_z2_sup <-merge(z2_full_excl,z2_full_incl,by ="z2_sup")
-# arrive beaucoup trop souvent..
-# if(nrow(merge_z2_sup==0)){print(paste0("level sup issue for area ",i))}
 

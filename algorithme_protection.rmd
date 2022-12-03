@@ -211,69 +211,42 @@ proteger_diffman <- function(max_size){
   Sys.time()
   # z2_to_tag <- readRDS(file = "z2_to_tag.rds")
 }
-sapply(seq(2:5),proteger_diffman)
+sapply(2:5,proteger_diffman)
+
 
 
 ```
 TODO : BIEN DIFFERENCIER LES CARREAUX GRIDDY DES CARREAUX NON GRIDDY DANS LES RER2SENTATIONS ?
 ```{r}
-z2_to_tag <-
-z2_to_nb_obs <- clean_init_dt(data_rp)[,.(nb_obs = sum(nb_obs)), by  = "z2"]
-z2_to_tag_obs <- merge(z2_to_tag,z2_to_nb_obs,by = "z2")
+
+z2_to_tag_global <- carreaux_griddy[niveau == 7][,c("id_carreau","etat","nb_obs")]
+colnames(z2_to_tag_global)<- c("z2","tag","nb_obs")
+z2_to_tag_global[,tag:= !tag]
+
+
+z2_to_tag_final <- readRDS("z2_to_tag_4.rds")
+comp <- merge(z2_to_tag_final,z2_to_tag_global,by = "z2")
+
+comp[tag.x != tag.y]
 
 z2_to_tag_obs[tag == TRUE & nb_obs >11]
 
-z2_sup_seuil <- z2_to_tag_obs[tag == TRUE & nb_obs >11]$z2 #2343
 
-carreaux_griddy[id_carreau %in% z2_sup_seuil] %>% 
-  group_by(etat) %>% 
-  summarise(compte = n()) # 1053 protégés par griddy déjà ..
 
 ```
 
 ```{r}
 
 # petit test d'algo 
-emboitement <- emboitement %>% 
-  group_by(z2_sup) %>% 
-  mutate(nfils = n()) 
 
-  area_issue <- global_diff_info$checked_area[1]  
-  
-  # comp_to_nb_com
-  num_comp <- 22
-  list_z1_compo<- compo$z1[compo$id_comp == num_comp]
-  
-  dt <- copy(data_rp)
-  input_dt <- clean_init_dt(dt[z1 %in% list_z1_compo])
-  
-  comp_diff_info <- global_diff_info[id_comp == num_comp]
-  complete_internal_diff_info <- build_complete_internal_table(comp_diff_info,list_z1_compo)
-  
-  l <- split(complete_internal_diff_info, complete_internal_diff_info$checked_area)
-  
-  ## on fait une check area
-  area_issue <- l[[1]]
   # je construis
   
-  fully_included_z2<- diffman:::prepare_data(input_dt)$fully_included_z2
-  z2_to_tag$full_incl <- z2_to_tag$z2 %in% unique(fully_included_z2$z2)
-  
-  
-  if(nrow(comp_diff_info)==0) return(NULL)  # Je build ici la table avectoutes les internal différences
-  
+
 
 
 ```
 
 
-```{r}
-# récupération du nombre d'individus par z2 ?
-z2_to_nb_obs <- clean_init_dt(data_rp)[,.(nb_obs = sum(nb_obs)), by  = "z2"]
-z2_to_tag_obs <- merge(z2_to_tag,z2_to_nb_obs,by = "z2")
-z2_to_tag_obs[tag == TRUE & nb_obs >11]
-z2_sup_seuil <- z2_to_tag_obs[tag == TRUE & nb_obs >11]$z2
-```
 
 
 ```{r}
