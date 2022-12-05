@@ -132,8 +132,8 @@ summary(global_diff_info$checked_area_size)
 
 Représentation graphique
 ```{r}
-num_comp <- 23
-# num_comp <- 185
+num_comp <- 185
+# num_comp <- 23 # il y a des diffs !
 threshold <- 11
 list_z1 <- compo$z1[compo$id_comp == num_comp ]
 comp_diff_info <- global_diff_info[id_comp == num_comp ]
@@ -199,7 +199,7 @@ library(pbapply)
 proteger_diffman <- function(max_size){
   print(max_size)
   # max_size <- 3
-  l2 <- pblapply(comp_to_nb_com$id_comp[100:1975],function(num_comp){
+  l2 <- pblapply(comp_to_nb_com$id_comp,function(num_comp){
     # num_comp <- 387
     #print(num_comp)
     out <- protect_component(
@@ -225,7 +225,7 @@ proteger_diffman <- function(max_size){
   saveRDS(res,paste0("z2_to_tag_",max_size,".rds"))
   # z2_to_tag <- readRDS(file = "z2_to_tag.rds")
 }
-sapply(3:4,proteger_diffman)
+sapply(2:5,proteger_diffman)
 
 
 ```

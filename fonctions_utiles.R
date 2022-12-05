@@ -146,8 +146,7 @@ build_complete_internal_table <- function(comp_diff_info,list_z1_compo){
 
 protect_component <- function(num_comp,global_diff_info,data_rp,z2_to_tag_global,threshold =11, checked_area_max_size = 3){ 
   # checked_area_max_size <- 10
-  # num_comp <- 443
-  # num_comp <- 23
+  # num_comp <- 185 # num_comp <- 23
   # threshold <-  11
   
   # comp_to_nb_com
@@ -171,7 +170,6 @@ protect_component <- function(num_comp,global_diff_info,data_rp,z2_to_tag_global
   comp_diff_info$checked_area_size <- NULL
   
   if(nrow(comp_diff_info)==0) return(NULL)  # Je build ici la table avectoutes les internal différences
-  
   complete_internal_diff_info <- build_complete_internal_table(comp_diff_info,list_z1_compo)
   
   
@@ -193,10 +191,10 @@ protect_component <- function(num_comp,global_diff_info,data_rp,z2_to_tag_global
     i <- i+1
     
     z2_to_tag <- actualiser_z2_to_tag(area_issue,list_z1_compo,input_dt,z2_to_tag,checked_area_max_size) 
-    
-     z2_to_tag_init <- copy(z2_to_tag_global)
-     comp <- merge(z2_to_tag_init,z2_to_tag,by ="z2")
-     print(comp[tag.x!= tag.y])
+      
+     # z2_to_tag_init <- copy(z2_to_tag_global)
+     # comp <- merge(z2_to_tag_init,z2_to_tag,by ="z2")
+     # print(comp[tag.x!= tag.y])
 
   }
 
