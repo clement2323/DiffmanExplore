@@ -71,7 +71,7 @@ search_diff_pb_one_resolution <- function(resolution,input_dt_grid){
     print("switch des rôles entre z1 et z2")
     input_dt_resolution[,z3:=z2];input_dt_resolution[,z2:=z1];input_dt_resolution[,`:=`(z1=z3,z3=NULL)]
   }
-    
+  
   # controle simple, nombre d'ibnter carreaux x communes avec - de 11 menages
   
   if(nrow(input_dt_resolution[nb_obs < 11]) == 0) stop("Aucune intersection en dessous du seuil")
@@ -99,7 +99,7 @@ build_complete_internal_table <- function(comp_diff_info,list_z1_compo){
   
   external_area <- unique(comp_diff_info[type_diff == "external"]$checked_area)
   internal_area <- unique(comp_diff_info[type_diff == "internal"]$checked_area)
-
+  
   # ça se passe bien sur la grosse compo -> 1 min # library(pbapply)
   internal_area_expected <- sapply(external_area,build_compl,list_z1_compo = list_z1_compo)
   
@@ -115,10 +115,10 @@ build_complete_internal_table <- function(comp_diff_info,list_z1_compo){
     external_to_internal <- data.table(external_checked_area = as.factor(names(missing_internal_area)), 
                                        internal_checked_area = as.factor(unname(missing_internal_area)),
                                        type_diff = "internal"
-                                       )
+    )
     
     
-
+    
     # avec les facteurs -> ultra rapide
     tmp<-comp_diff_info[,c("z1","z2","nb_obs","checked_area","id_comp")] 
     tmp[,checked_area := as.factor(checked_area)]
@@ -145,20 +145,24 @@ build_complete_internal_table <- function(comp_diff_info,list_z1_compo){
 # fonction proteger compo qui balai toutes les cheqck area blanchi de aprt et autres de la ckeked area (dans son complémentaire aussi) on blanchit jusqu'à ce que la différence dépasse 11
 
 protect_component <- function(num_comp,global_diff_info,data_rp,z2_to_tag_global,threshold =11, checked_area_max_size = 3){ 
-  # comp_to_nb_com
+  # checked_area_max_size <- 10
+  # num_comp <- 443
   # num_comp <- 23
+  # threshold <-  11
+  
+  # comp_to_nb_com
+  
   # chevauchant => pas de diff_interne possible mais une diff externe possible ici on traite ce sous cas ici
   
   dt <- copy(data_rp)
-  z2_to_tag <- copy(z2_to_tag_global)
-  
   list_z1_compo<- compo$z1[compo$id_comp == num_comp]
   input_dt <- clean_init_dt(dt[z1 %in% list_z1_compo])
-  
   fully_included_z2<- diffman:::prepare_data(input_dt)$fully_included_z2
-  z2_to_tag <- z2_to_tag[z2 %in% input_dt$z2]
   
+  z2_to_tag <- copy(z2_to_tag_global)
+  z2_to_tag <- z2_to_tag[z2 %in% input_dt$z2]
   z2_to_tag$full_incl <- z2_to_tag$z2 %in% unique(fully_included_z2$z2)
+  
   
   comp_diff_info <- global_diff_info[id_comp == num_comp]
   
@@ -180,7 +184,7 @@ protect_component <- function(num_comp,global_diff_info,data_rp,z2_to_tag_global
   #### Et voici l'algorithme !!
   l <- split(complete_internal_diff_info,complete_internal_diff_info$checked_area)
   i <-1
-
+  
   for(area_issue in l){
     # area_issue <- l[[1]]
     # area_issue <-   l$`15200`
@@ -189,71 +193,85 @@ protect_component <- function(num_comp,global_diff_info,data_rp,z2_to_tag_global
     i <- i+1
     
     z2_to_tag <- actualiser_z2_to_tag(area_issue,list_z1_compo,input_dt,z2_to_tag,checked_area_max_size) 
-     
-  } # fin de la boucle 
+    
+     z2_to_tag_init <- copy(z2_to_tag_global)
+     comp <- merge(z2_to_tag_init,z2_to_tag,by ="z2")
+     print(comp[tag.x!= tag.y])
+
+  }
+
+  # tmp <- actualiser_z2_to_tag(area_issue,list_z1_compo,input_dt,z2_to_tag,checked_area_max_size)
+  # z2_to_tag_init <- copy(z2_to_tag_global)
+  # comp <- merge(z2_to_tag_init,z2_to_tag,by ="z2")
+  # comp[tag.x!= tag.y]
+  
+  # fin de la boucle 
   return(z2_to_tag)
 }
 
 # Je protège ici une zone à risque de différenciation obtenue via une checked area donnée
 actualiser_z2_to_tag <- function(area_issue,list_z1_compo,input_dt,z2_to_tag,checked_area_max_size){
-    # threshold = 11
-    # z2_to_tag <- copy(z2_to_tag)
-    nb_obs_at_risk <- sum(area_issue$nb_obs)
-    nb_to_add <- threshold - nb_obs_at_risk
+  # threshold = 11
+  
+  z1_in_area <-unlist(strsplit(unique(as.character(area_issue$checked_area)),"-"))
+  
+  z2_to_tag_actualise <- copy(z2_to_tag)
+  nb_obs_at_risk <- sum(area_issue$nb_obs)
+  nb_to_add <- threshold - nb_obs_at_risk
+  
+  handle_internal <- unique(area_issue$internal_checked_area_size)<= checked_area_max_size
+  handle_external <- unique(area_issue$external_checked_area_size)<= checked_area_max_size
+  
+  # en amont récupérer 
+  l <- calculer_zone_interne_externe(area_issue,list_z1_compo,z2_to_tag_actualise)
+  z2_full_incl <- l$z2_full_incl
+  z2_full_excl <- l$z2_full_excl
+  
+  # je réadapte le nb en fonction de ce qui a été blanchit déjà et je supprimeai les lignes dans la table après
+  nb_to_add_full_incl <- nb_to_add - sum(z2_full_incl$nb_obs[z2_full_incl$tag])
+  nb_to_add_full_excl <- nb_to_add - sum(z2_full_excl$nb_obs[z2_full_excl$tag])
+  
+  z2_to_mask_incl<- c()
+  z2_to_mask_excl <- c()
+  
+  if(nb_to_add_full_incl >0 & nrow(z2_full_incl) > 0 & handle_internal){
     
-    handle_internal <- unique(area_issue$internal_checked_area_size)<= checked_area_max_size
-    handle_external <- unique(area_issue$external_checked_area_size)<= checked_area_max_size
+    z2_full_incl <- z2_full_incl[tag == FALSE]
+    z2_full_incl[,cum_nb_obs := cumsum(nb_obs)]
+    z2_full_incl[,higher := cum_nb_obs>=nb_to_add_full_incl]
     
-    # en amont récupérer 
-    l <- calculer_zone_interne_externe(area_issue,list_z1_compo,z2_to_tag)
-    z2_full_incl <- l$z2_full_incl
-    z2_full_excl <- l$z2_full_excl
+    ind_sup <- first(which(z2_full_incl$higher))
     
-    # je réadapte le nb en fonction de ce qui a été blanchit déjà et je supprimeai les lignes dans la table après
-    nb_to_add_full_incl <- nb_to_add - sum(z2_full_incl$nb_obs[z2_full_incl$tag])
-    nb_to_add_full_excl <- nb_to_add - sum(z2_full_excl$nb_obs[z2_full_excl$tag])
-    
-    z2_to_mask_incl<- c()
-    z2_to_mask_excl <- c()
-    
-    if(nb_to_add_full_incl >0 & nrow(z2_full_incl) > 0 & handle_internal){
-      
-      z2_full_incl <- z2_full_incl[tag == FALSE]
-      z2_full_incl[,cum_nb_obs := cumsum(nb_obs)]
-      z2_full_incl[,higher := cum_nb_obs>=nb_to_add_full_incl]
-      
-      ind_sup <- first(which(z2_full_incl$higher))
-      
-      if (is.na(ind_sup)){ # pas assez d'obs pour proteger on blanchit tout même l'iontersection et on actualise z2 tot ag direct
-        z2_to_mask_incl <- NULL
-        z2_to_tag[z2 %in% input_dt[z1 %in% z1_in_area]$z2]$tag <- TRUE #on blanchit tout même l'intersection qu'opn récupère (la commune n'a pas assez de ménages )
-      }else{ # fonctionnement normal
+    if (is.na(ind_sup)){ # pas assez d'obs pour proteger on blanchit tout même l'iontersection et on actualise z2 tot ag direct
+      z2_to_mask_incl <- NULL
+      z2_to_tag_actualise[z2 %in% input_dt[z1 %in% z1_in_area]$z2]$tag <- TRUE #on blanchit tout même l'intersection qu'opn récupère (la commune n'a pas assez de ménages )
+    }else{ # fonctionnement normal
       ind_z2 <- 1:ind_sup
       z2_to_mask_incl <- z2_full_incl$z2[ind_z2]
-      }
     }
-    # RAJOUTER CONDITION  SUR LA TAILLE DE LA ZONE EXTERNE ICI POUR SAVOIR SI ONLA PROTEGE AUSSI
-    if(nb_to_add_full_excl >0 & nrow(z2_full_excl)> 0 & handle_external){
-      
-      z2_full_excl <- z2_full_excl[tag == FALSE]
-      z2_full_excl[,cum_nb_obs := cumsum(nb_obs)]
-      z2_full_excl[,higher := cum_nb_obs>nb_to_add_full_excl]
-      
-      ind_sup <- first(which(z2_full_excl$higher)) 
-      
-      # ne pas oublier que les inférieurs au seuil seront nécessairement blanchis il faut juste en ajouter si ils ne suffisent pas (si il n'yen a pas  1 seul carreau suffira)
-      
-      if (is.na(ind_sup)){ # pas assez d'obs pour proteger on blanchit tout même l'iontersection et on actualise z2 tot ag direct
-        z2_to_mask_excl <- NULL
-        z2_to_tag[z2 %in% z2_full_excl$z2]$tag <- TRUE #on blanchit tout aussi
-      }else{
+  }
+  # RAJOUTER CONDITION  SUR LA TAILLE DE LA ZONE EXTERNE ICI POUR SAVOIR SI ONLA PROTEGE AUSSI
+  if(nb_to_add_full_excl >0 & nrow(z2_full_excl)> 0 & handle_external){
+    
+    z2_full_excl <- z2_full_excl[tag == FALSE]
+    z2_full_excl[,cum_nb_obs := cumsum(nb_obs)]
+    z2_full_excl[,higher := cum_nb_obs>nb_to_add_full_excl]
+    
+    ind_sup <- first(which(z2_full_excl$higher)) 
+    
+    # ne pas oublier que les inférieurs au seuil seront nécessairement blanchis il faut juste en ajouter si ils ne suffisent pas (si il n'yen a pas  1 seul carreau suffira)
+    
+    if (is.na(ind_sup)){ # pas assez d'obs pour proteger on blanchit tout même l'iontersection et on actualise z2 tot ag direct
+      z2_to_mask_excl <- NULL
+      z2_to_tag_actualise[z2 %in% z2_full_excl$z2]$tag <- TRUE #on blanchit tout aussi
+    }else{
       ind_z2 <- 1:ind_sup
       z2_to_mask_excl <- z2_full_excl$z2[ind_z2]
-      }
     }
-    z2_to_tag[z2 %in% c(z2_to_mask_incl,z2_to_mask_excl)]$tag <- TRUE
-    
-    return(z2_to_tag)
+  }
+  z2_to_tag_actualise[z2 %in% c(z2_to_mask_incl,z2_to_mask_excl)]$tag <- TRUE
+  
+  return(z2_to_tag_actualise)
 }
 
 

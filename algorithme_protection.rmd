@@ -132,31 +132,37 @@ summary(global_diff_info$checked_area_size)
 
 Représentation graphique
 ```{r}
-num_comp <- 263
+num_comp <- 23
+# num_comp <- 185
 threshold <- 11
 list_z1 <- compo$z1[compo$id_comp == num_comp ]
 comp_diff_info <- global_diff_info[id_comp == num_comp ]
 
 # application de l'algo
-z2_to_tag <- protect_component(
+z2_to_tag_compo <- protect_component(
   num_comp = num_comp,
   global_diff_info = global_diff_info,
   data_rp = data_rp,
   z2_to_tag = z2_to_tag_global,
-  threshold =11, checked_area_max_size = 3
+  threshold = 11, checked_area_max_size = 3
   )
 list_z1 <- compo[id_comp == num_comp]$z1
 
 input_dt <- clean_init_dt(data_rp[z1 %in% list_z1])
 l<- preparer_geom(input_dt)
 
+z2_diff <- merge(z2_to_tag_global,z2_to_tag_compo,by ="z2")[tag.x != tag.y]
+if(nrow(z2_diff!=0)) {list_z2_color <- z2_diff$z2}
+
 draw_situation(
   input_dt,
   l$geom_z1,
   l$geom_z2,
   threshold = 11,
-  list_z2_to_color = z2_to_tag[tag == TRUE]$z2  
+  list_z2_to_color = list_z2_color# ici on ne va ajouter que ceux qui sont blanchis en + par rapport à griddy
                ) 
+
+# comp_to_nb_com
 ```
 
 ## Application protection post griddy
@@ -191,28 +197,35 @@ library(pbapply)
 
 # 10 min
 proteger_diffman <- function(max_size){
-  Sys.time()
   print(max_size)
-  l <- pblapply(rev(comp_to_nb_com$id_comp),function(num_comp){
-    # num_comp <- 263
+  # max_size <- 3
+  l2 <- pblapply(comp_to_nb_com$id_comp[100:1975],function(num_comp){
+    # num_comp <- 387
     #print(num_comp)
-    protect_component(
+    out <- protect_component(
     num_comp = num_comp,
     global_diff_info = global_diff_info,
     data_rp = data_rp,
     z2_to_tag_global = z2_to_tag_global,
     checked_area_max_size = max_size)
+     
+    # print("inside loop")
+    # comp <- merge(out,z2_to_tag_global,by ="z2")
+    # print(nrow(comp[tag.x != tag.y]))
+     
+    return(out)
   }
   )
 
-  res <-do.call(rbind,l)
-
+  res <-do.call(rbind,l2)
+  # print("after loop")
+  # comp <- merge(res,z2_to_tag_global,by ="z2")
+  # print(nrow(comp[tag.x != tag.y]))
+  #  
   saveRDS(res,paste0("z2_to_tag_",max_size,".rds"))
-  Sys.time()
   # z2_to_tag <- readRDS(file = "z2_to_tag.rds")
 }
-sapply(2:5,proteger_diffman)
-
+sapply(3:4,proteger_diffman)
 
 
 ```
@@ -228,8 +241,7 @@ z2_to_tag_final <- readRDS("z2_to_tag_4.rds")
 comp <- merge(z2_to_tag_final,z2_to_tag_global,by = "z2")
 
 comp[tag.x != tag.y]
-
-z2_to_tag_obs[tag == TRUE & nb_obs >11]
+z2_to_tag_final[tag == TRUE & nb_obs >11]
 
 
 
