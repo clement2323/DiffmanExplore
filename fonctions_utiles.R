@@ -145,10 +145,10 @@ build_complete_internal_table <- function(comp_diff_info,list_z1_compo){
 # fonction proteger compo qui balai toutes les cheqck area blanchi de aprt et autres de la ckeked area (dans son complémentaire aussi) on blanchit jusqu'à ce que la différence dépasse 11
 
 protect_component <- function(num_comp,global_diff_info,data_rp,z2_to_tag_global,threshold =11, checked_area_max_size = 3){ 
-  # checked_area_max_size <- 10
-  # num_comp <- 185 # num_comp <- 23
+  # checked_area_max_size <- 3
+  # num_comp <- 23
   # threshold <-  11
-  
+
   # comp_to_nb_com
   
   # chevauchant => pas de diff_interne possible mais une diff externe possible ici on traite ce sous cas ici
@@ -161,14 +161,12 @@ protect_component <- function(num_comp,global_diff_info,data_rp,z2_to_tag_global
   z2_to_tag <- copy(z2_to_tag_global)
   z2_to_tag <- z2_to_tag[z2 %in% input_dt$z2]
   z2_to_tag$full_incl <- z2_to_tag$z2 %in% unique(fully_included_z2$z2)
+  z2_to_tag$tag_init <- z2_to_tag$tag
   
+  comp_diff_info <- global_diff_info[id_comp == as.character(num_comp)]
   
-  comp_diff_info <- global_diff_info[id_comp == num_comp]
-  
-  # filtrage suivant la max checked_area_size
-  
-  comp_diff_info$checked_area_size <- NULL
-  
+  # comp_diff_info$checked_area_size <- NULL
+
   if(nrow(comp_diff_info)==0) return(NULL)  # Je build ici la table avectoutes les internal différences
   complete_internal_diff_info <- build_complete_internal_table(comp_diff_info,list_z1_compo)
   
@@ -176,6 +174,7 @@ protect_component <- function(num_comp,global_diff_info,data_rp,z2_to_tag_global
   complete_internal_diff_info$internal_checked_area_size <- sapply(strsplit(complete_internal_diff_info$checked_area,"-"),length)
   complete_internal_diff_info$external_checked_area_size <- length(list_z1_compo)-complete_internal_diff_info$internal_checked_area_size
   
+  # filtrage suivant la max checked_area_size
   # je m'arrête aux cas suffisamment petits 
   complete_internal_diff_info <- complete_internal_diff_info[internal_checked_area_size <= checked_area_max_size | external_checked_area_size <= checked_area_max_size]
   
@@ -191,18 +190,13 @@ protect_component <- function(num_comp,global_diff_info,data_rp,z2_to_tag_global
     i <- i+1
     
     z2_to_tag <- actualiser_z2_to_tag(area_issue,list_z1_compo,input_dt,z2_to_tag,checked_area_max_size) 
-      
-     # z2_to_tag_init <- copy(z2_to_tag_global)
-     # comp <- merge(z2_to_tag_init,z2_to_tag,by ="z2")
-     # print(comp[tag.x!= tag.y])
-
+    
+     # z2_to_tag[tag!=tag_init]  
+     
   }
 
-  # tmp <- actualiser_z2_to_tag(area_issue,list_z1_compo,input_dt,z2_to_tag,checked_area_max_size)
-  # z2_to_tag_init <- copy(z2_to_tag_global)
-  # comp <- merge(z2_to_tag_init,z2_to_tag,by ="z2")
-  # comp[tag.x!= tag.y]
-  
+  # z2_to_tag[tag!=tag_init]  
+  # merge(z2_to_tag_global,z2_to_tag[tag!=tag_init],by = "z2")
   # fin de la boucle 
   return(z2_to_tag)
 }

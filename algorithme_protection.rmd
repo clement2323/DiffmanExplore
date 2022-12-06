@@ -126,17 +126,16 @@ all_component_risk_extraction(
 ```{r}
 global_diff_info <- read_diff_info("diff_info")
 global_diff_info <- global_diff_info[!is.na(nb_obs)]
-global_diff_info$checked_area_size <- sapply(strsplit(global_diff_info$checked_area,"-"),length)
-summary(global_diff_info$checked_area_size)
+# global_diff_info$checked_area_size <- sapply(strsplit(global_diff_info$checked_area,"-"),length)
+# summary(global_diff_info$checked_area_size)
 ```
-
 Représentation graphique
 ```{r}
 num_comp <- 185
-# num_comp <- 23 # il y a des diffs !
+num_comp <- 23 # il y a des diffs !
 threshold <- 11
 list_z1 <- compo$z1[compo$id_comp == num_comp ]
-comp_diff_info <- global_diff_info[id_comp == num_comp ]
+
 
 # application de l'algo
 z2_to_tag_compo <- protect_component(
@@ -151,8 +150,9 @@ list_z1 <- compo[id_comp == num_comp]$z1
 input_dt <- clean_init_dt(data_rp[z1 %in% list_z1])
 l<- preparer_geom(input_dt)
 
-z2_diff <- merge(z2_to_tag_global,z2_to_tag_compo,by ="z2")[tag.x != tag.y]
+z2_diff <- z2_to_tag_compo[tag!=tag_init]
 if(nrow(z2_diff!=0)) {list_z2_color <- z2_diff$z2}
+
 
 draw_situation(
   input_dt,
@@ -199,15 +199,15 @@ library(pbapply)
 proteger_diffman <- function(max_size){
   print(max_size)
   # max_size <- 3
-  l2 <- pblapply(comp_to_nb_com$id_comp,function(num_comp){
+  l2 <- pblapply(comp_to_nb_com$id_comp[4:5],function(num_comp){
     # num_comp <- 387
     #print(num_comp)
     out <- protect_component(
-    num_comp = num_comp,
-    global_diff_info = global_diff_info,
-    data_rp = data_rp,
-    z2_to_tag_global = z2_to_tag_global,
-    checked_area_max_size = max_size)
+      num_comp = num_comp,
+      global_diff_info = global_diff_info,
+      data_rp = data_rp,
+      z2_to_tag_global = z2_to_tag_global,
+      checked_area_max_size = max_size)
      
     # print("inside loop")
     # comp <- merge(out,z2_to_tag_global,by ="z2")
@@ -225,7 +225,7 @@ proteger_diffman <- function(max_size){
   saveRDS(res,paste0("z2_to_tag_",max_size,".rds"))
   # z2_to_tag <- readRDS(file = "z2_to_tag.rds")
 }
-sapply(2:5,proteger_diffman)
+sapply(6:7,proteger_diffman)
 
 
 ```
@@ -237,7 +237,7 @@ colnames(z2_to_tag_global)<- c("z2","tag","nb_obs")
 z2_to_tag_global[,tag:= !tag]
 
 
-z2_to_tag_final <- readRDS("z2_to_tag_4.rds")
+z2_to_tag_final <- readRDS("z2_to_tag_2.rds")
 comp <- merge(z2_to_tag_final,z2_to_tag_global,by = "z2")
 
 comp[tag.x != tag.y]
