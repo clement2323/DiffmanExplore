@@ -199,7 +199,7 @@ library(pbapply)
 proteger_diffman <- function(max_size){
   print(max_size)
   # max_size <- 3
-  l2 <- pblapply(comp_to_nb_com$id_comp[4:5],function(num_comp){
+  l2 <- pblapply(comp_to_nb_com$id_comp,function(num_comp){
     # num_comp <- 387
     #print(num_comp)
     out <- protect_component(
@@ -225,7 +225,7 @@ proteger_diffman <- function(max_size){
   saveRDS(res,paste0("z2_to_tag_",max_size,".rds"))
   # z2_to_tag <- readRDS(file = "z2_to_tag.rds")
 }
-sapply(6:7,proteger_diffman)
+sapply(2:5,proteger_diffman)
 
 
 ```
