@@ -22,7 +22,7 @@ mc cp s3/cguillo/commune_franceentiere_2021.shx ext_data/commune_franceentiere_2
 mc cp s3/cguillo/data_rp.rds ext_data/data_rp.rds
 mc cp s3/cguillo/data_rp.rds DiffmanExplore/data_rp.rds
 mc cp s3/cguillo/resultat_brut_gridy_individus.RData resultat_brut_gridy_individus.RData
-mc cp recursive s3/cguillo/diff_info 
+mc cp --recursive s3/cguillo/diff_info diff_info
 
 mc cp recursive s3/cguillo/diff_info 
 
@@ -96,9 +96,6 @@ comp_to_nb_com
 
 ```
 
-## Travail sur une composante :
-On va regarder dans la composante 387 et ses 80 communes :
-
 ```{r}
 load("resultat_brut_gridy_individus.RData")
 
@@ -112,7 +109,7 @@ head(z2_to_tag_global)
 ```
 
 ```{r}
-
+# niveau_1 
 all_component_risk_extraction(
   input_dt,
   threshold = 11,
@@ -120,8 +117,26 @@ all_component_risk_extraction(
   save_dir = "diff_info"
   )
 
+```
+La même chose mais pour les carreaux de niveau 2 !
+```{r}
+emboitement$z2 <-emboitement$id_carreau_niv6
+input_dt_niv_2 <- merge(input_dt,emboitement[,c("carreau","id_carreau_niv6")], by.x = "z2", by.y = "carreau")
+
+input_dt_niv_2$z2 <- input_dt_niv_2$id_carreau_niv6
+input_dt_niv_2$id_carreau_niv6 <- NULL
+input_dt_niv_2 <- input_dt_niv_2[,.(nb_obs= sum(nb_obs)), by =c("z2","z1")]
+
+
+all_component_risk_extraction(
+  input_dt_niv_2,
+  threshold = 11,
+  max_agregate_size = 15,
+  save_dir = "diff_info_niv_2"
+  )
 
 ```
+
 
 ```{r}
 global_diff_info <- read_diff_info("diff_info")
