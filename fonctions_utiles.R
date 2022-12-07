@@ -145,17 +145,26 @@ build_complete_internal_table <- function(comp_diff_info,list_z1_compo){
 # fonction proteger compo qui balai toutes les cheqck area blanchi de aprt et autres de la ckeked area (dans son complémentaire aussi) on blanchit jusqu'à ce que la différence dépasse 11
 
 protect_component <- function(num_comp,compo,global_diff_info,data_rp,z2_to_tag_global,threshold =11, checked_area_max_size = 3){ 
-  # checked_area_max_size <- 3
-  # num_comp <- 23
-  # threshold <-  11
+  
+  # compo = compo
+  # global_diff_info = global_diff_info
+  # data_rp = data_rp
+  # z2_to_tag_global = z2_to_tag_global
+  # threshold = 11
+  # checked_area_max_size = 1
+  # 
+  # num_comp <- 26
+  # num_comp <- 544
+  # num_comp <- 26
+  
 
   # comp_to_nb_com
   
   # chevauchant => pas de diff_interne possible mais une diff externe possible ici on traite ce sous cas ici
   
-  dt <- copy(data_rp)
-  list_z1_compo<- compo$z1[compo$id_comp == num_comp]
-  input_dt <- clean_init_dt(dt[z1 %in% list_z1_compo])
+  
+  list_z1_compo<- compo[compo$id_comp == num_comp]$z1
+  input_dt <- clean_init_dt(data_rp[z1 %in% list_z1_compo])
   fully_included_z2<- diffman:::prepare_data(input_dt)$fully_included_z2
   
   z2_to_tag <- copy(z2_to_tag_global)
@@ -189,20 +198,19 @@ protect_component <- function(num_comp,compo,global_diff_info,data_rp,z2_to_tag_
     if (num_comp == 1 & i%%100 == 0) print(i)
     i <- i+1
     
-    z2_to_tag <- actualiser_z2_to_tag(area_issue,list_z1_compo,input_dt,z2_to_tag,checked_area_max_size) 
-    
+    z2_to_tag <- actualiser_z2_to_tag(area_issue,list_z1_compo,input_dt,copy(z2_to_tag),checked_area_max_size,threshold) 
      # z2_to_tag[tag!=tag_init]  
-     
   }
+  
+  out <- copy(z2_to_tag)
 
-  # z2_to_tag[tag!=tag_init]  
-  # merge(z2_to_tag_global,z2_to_tag[tag!=tag_init],by = "z2")
+  # out[tag!=tag_init]  
   # fin de la boucle 
-  return(z2_to_tag)
+  return(out)
 }
 
 # Je protège ici une zone à risque de différenciation obtenue via une checked area donnée
-actualiser_z2_to_tag <- function(area_issue,list_z1_compo,input_dt,z2_to_tag,checked_area_max_size){
+actualiser_z2_to_tag <- function(area_issue,list_z1_compo,input_dt,z2_to_tag,checked_area_max_size,threshold){
   # threshold = 11
   
   z1_in_area <-unlist(strsplit(unique(as.character(area_issue$checked_area)),"-"))
@@ -215,7 +223,7 @@ actualiser_z2_to_tag <- function(area_issue,list_z1_compo,input_dt,z2_to_tag,che
   handle_external <- unique(area_issue$external_checked_area_size)<= checked_area_max_size
   
   # en amont récupérer 
-  l <- calculer_zone_interne_externe(area_issue,list_z1_compo,z2_to_tag_actualise)
+  l <- calculer_zone_interne_externe(area_issue,list_z1_compo,input_dt,z2_to_tag_actualise)
   z2_full_incl <- l$z2_full_incl
   z2_full_excl <- l$z2_full_excl
   
@@ -268,7 +276,7 @@ actualiser_z2_to_tag <- function(area_issue,list_z1_compo,input_dt,z2_to_tag,che
 
 
 
-calculer_zone_interne_externe <- function(area_issue,list_z1_compo,z2_to_tag){
+calculer_zone_interne_externe <- function(area_issue,list_z1_compo,input_dt,z2_to_tag){
   
   # je sors l'ensemble des carreaux de la zone interne
   z1_in_area <-unlist(strsplit(unique(as.character(area_issue$checked_area)),"-"))
