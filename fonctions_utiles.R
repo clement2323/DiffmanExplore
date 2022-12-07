@@ -144,7 +144,7 @@ build_complete_internal_table <- function(comp_diff_info,list_z1_compo){
 # diffman ne sort pas touts les types de differenciation par exemple la commune 26267 ne sort pas mais son complémentaire oui donc pas grave..
 # fonction proteger compo qui balai toutes les cheqck area blanchi de aprt et autres de la ckeked area (dans son complémentaire aussi) on blanchit jusqu'à ce que la différence dépasse 11
 
-protect_component <- function(num_comp,global_diff_info,data_rp,z2_to_tag_global,threshold =11, checked_area_max_size = 3){ 
+protect_component <- function(num_comp,compo,global_diff_info,data_rp,z2_to_tag_global,threshold =11, checked_area_max_size = 3){ 
   # checked_area_max_size <- 3
   # num_comp <- 23
   # threshold <-  11

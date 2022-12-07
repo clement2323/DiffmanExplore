@@ -30,7 +30,7 @@ mc cp recursive s3/cguillo/diff_info
 Ici, j'applique directement l'algorithme de protection sur les carreaux sensibles détectés par griddy
 
 ```{r}
-paquets <- c("data.table","prettydoc","devtools","testthat","ggplot2","dplyr","btb")
+paquets <- c("data.table","prettydoc","devtools","testthat","ggplot2","dplyr","btb","pbapply")
 ```
 
 ```{r warning=FALSE,message=FALSE,echo = FALSE}
@@ -126,7 +126,7 @@ input_dt_niv_2 <- merge(input_dt,emboitement[,c("carreau","id_carreau_niv6")], b
 input_dt_niv_2$z2 <- input_dt_niv_2$id_carreau_niv6
 input_dt_niv_2$id_carreau_niv6 <- NULL
 input_dt_niv_2 <- input_dt_niv_2[,.(nb_obs= sum(nb_obs)), by =c("z2","z1")]
-
+input_dt_niv_2 <- clean_init_dt(input_dt_niv_2)
 
 all_component_risk_extraction(
   input_dt_niv_2,
@@ -147,11 +147,11 @@ global_diff_info <- global_diff_info[!is.na(nb_obs)]
 Représentation graphique
 ```{r}
 num_comp <- 185
-num_comp <- 23 # il y a des diffs !
+num_comp <- 26 # il y a des diffs !
 threshold <- 11
 list_z1 <- compo$z1[compo$id_comp == num_comp ]
 
-
+# comp_to_nb_com
 # application de l'algo
 z2_to_tag_compo <- protect_component(
   num_comp = num_comp,
@@ -166,10 +166,10 @@ input_dt <- clean_init_dt(data_rp[z1 %in% list_z1])
 l<- preparer_geom(input_dt)
 
 z2_diff <- z2_to_tag_compo[tag!=tag_init]
-if(nrow(z2_diff!=0)) {list_z2_color <- z2_diff$z2}
+if(nrow(z2_diff!=0)) {list_z2_color <- z2_diff$z2}else{list_z2_color = NULL}
 
 
-draw_situation(
+map <- draw_situation(
   input_dt,
   l$geom_z1,
   l$geom_z2,
@@ -177,38 +177,15 @@ draw_situation(
   list_z2_to_color = list_z2_color# ici on ne va ajouter que ceux qui sont blanchis en + par rapport à griddy
                ) 
 
+map %>% 
+# ajout des carreaux griddy par dessus !!! via leaflet !
 # comp_to_nb_com
 ```
 
 ## Application protection post griddy
 
-On va prendre les résultats de griddy sur les petits carreaux de julien en apriori, par exemple dans z2_to_tag et on va poser le secreten fonction en gardant le même algorithme, si ce n'est que l'on va limiter la protection aux problèmes de différenciation de taille n avec n ==...
-
-Truc intéressant : regarder la distribution de la taille des checked area en termes de nombre de z1
-
 
 ```{r}
-# Ok limiter le taf aux zones interne <5 et ne pas blanchir dans les zones externes trop grand n_compo- n_zone externe < 5 "moyen raisonnable"
-# faire partir le code de z2_to_tag qui vient de griddy
-# intégrer l'extraction des zones full_incl etc..
-
-
-```
-
-Pour la suite. : il semble y a voir beaucoup trop de cas où on peut reconstruire une zone interne ou externe avec une somme de carreaux de niveau supérieur !!
-
-## Application de l'algo sur le data set entier :
-
-D'abord la composante numéro 1 toute seule (tourne en 10 h..)
-(cf 10000 zones à checker 1.5 secondes par zones = 15000 sec )
-
-
-Puis les autres (beaucoup plus rapide..)
-
-
-```{r}
-install.packages("pbapply")
-library(pbapply)
 
 # 10 min
 proteger_diffman <- function(max_size){
@@ -219,6 +196,7 @@ proteger_diffman <- function(max_size){
     #print(num_comp)
     out <- protect_component(
       num_comp = num_comp,
+      compo = compo,
       global_diff_info = global_diff_info,
       data_rp = data_rp,
       z2_to_tag_global = z2_to_tag_global,
@@ -252,23 +230,54 @@ colnames(z2_to_tag_global)<- c("z2","tag","nb_obs")
 z2_to_tag_global[,tag:= !tag]
 
 
-z2_to_tag_final <- readRDS("z2_to_tag_2.rds")
+z2_to_tag_final <- readRDS("z2_to_tag_3.rds")
+z2_to_tag_final[tag!=tag_init]
+
 comp <- merge(z2_to_tag_final,z2_to_tag_global,by = "z2")
 
 comp[tag.x != tag.y]
 z2_to_tag_final[tag == TRUE & nb_obs >11]
 
 
-
+## controle du nombre de carreaux dans le final
+# les carreaux hors du final sont c
 ```
 
+## Travail sur le niveau au dessus :
+TO DO :
+- faire une carte "réelle avec les carreaux blanchis par diffman en rouge et les carreaux blanchios pour l'algo"
 ```{r}
+# 1) Récupération du global diff_info
+global_diff_info_niv_2 <- read_diff_info("diff_info_niv_2")
+global_diff_info_niv_2 <- global_diff_info_niv_2[!is.na(nb_obs)]
 
-# petit test d'algo 
-
-  # je construis
+# 2) Construction du z2_to_tag
+z2_to_tag_global_niv_2 <- carreaux_griddy[niveau == 6][,c("id_carreau","etat","nb_obs")]
+colnames(z2_to_tag_global_niv_2)<- c("z2","tag","nb_obs")
+z2_to_tag_global_niv_2[,tag:= !tag]
   
 
+#3) creation de l'input_dt niveau 2
+
+compo_niv_2 <- return_connected_components(input_dt_niv_2)
+comp_to_nb_com_niv_2 <- compo_niv_2[,.(nb_com = length(z1)),by ="id_comp"][rev(order(nb_com)),]
+comp_to_nb_com_niv_2
+
+num_comp <- 593
+max_size <- 5
+
+out <- protect_component(
+      num_comp = num_comp,
+      compo = compo_niv_2,
+      global_diff_info = global_diff_info_niv_2,
+      data_rp = input_dt_niv_2,
+      z2_to_tag_global = z2_to_tag_global_niv_2,
+      checked_area_max_size = max_size)
+     
+
+# list_z1 <- compo_niv_2[id_comp == num_comp]$z1
+# list_z2 <- input_dt_niv_2[z1 %in% list_z1]$z2 %>% unique()
+# length(list_z2) == nrow(out)
 
 
 ```
