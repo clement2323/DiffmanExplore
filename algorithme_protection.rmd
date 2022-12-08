@@ -160,7 +160,7 @@ z2_to_tag_compo <- protect_component(
   global_diff_info = global_diff_info, 
   data_rp = data_rp,
   z2_to_tag = z2_to_tag_global,
-  threshold = 11, checked_area_max_size = 3
+  threshold = 11, checked_area_max_size = 1
   )
 
 z2_diff <- z2_to_tag_compo[tag!=tag_init]
@@ -175,7 +175,7 @@ l<- preparer_geom(dt)
 list_z2_color <- z2_to_tag_compo[tag_init == TRUE,]$z2
 
 map <- draw_situation(
-  input_dt,
+  dt,
   l$geom_z1,
   l$geom_z2,
   threshold = 11,
@@ -201,7 +201,7 @@ map <- addPolygons(
                    color = "orange",
                    opacity = 0.8
                    )
-
+map
 # z2_to_tag_global[z2 =="FR_CRS3035RES1000mN2944000E3773000"]
 # z2_to_tag_compo[z2 =="FR_CRS3035RES1000mN2944000E3773000"]
 
@@ -267,6 +267,8 @@ colnames(z2_to_tag_global)<- c("z2","tag","nb_obs")
 z2_to_tag_global[,tag:= !tag]
 
 
+z2_to_tag_final <- readRDS("z2_to_tag_1.rds")
+z2_to_tag_final <- readRDS("z2_to_tag_2.rds")
 z2_to_tag_final <- readRDS("z2_to_tag_3.rds")
 z2_to_tag_final[tag!=tag_init]
 
@@ -278,6 +280,7 @@ z2_to_tag_final[tag == TRUE & nb_obs >11]
 
 ## controle du nombre de carreaux dans le final
 # les carreaux hors du final sont c
+
 ```
 
 ## Travail sur le niveau au dessus :

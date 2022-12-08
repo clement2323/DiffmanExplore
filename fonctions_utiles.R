@@ -145,18 +145,19 @@ build_complete_internal_table <- function(comp_diff_info,list_z1_compo){
 # fonction proteger compo qui balai toutes les cheqck area blanchi de aprt et autres de la ckeked area (dans son complémentaire aussi) on blanchit jusqu'à ce que la différence dépasse 11
 
 protect_component <- function(num_comp,compo,global_diff_info,data_rp,z2_to_tag_global,threshold =11, checked_area_max_size = 3){ 
-  
+  # 
   # compo = compo
   # global_diff_info = global_diff_info
   # data_rp = data_rp
   # z2_to_tag_global = z2_to_tag_global
   # threshold = 11
-  # checked_area_max_size = 1
-  # 
+  # checked_area_max_size = 2
+
   # num_comp <- 26
   # num_comp <- 544
   # num_comp <- 26
-  
+  # num_comp <- 23
+  # num_comp <- 3
 
   # comp_to_nb_com
   
@@ -165,11 +166,11 @@ protect_component <- function(num_comp,compo,global_diff_info,data_rp,z2_to_tag_
   
   list_z1_compo<- compo[compo$id_comp == num_comp]$z1
   input_dt <- clean_init_dt(data_rp[z1 %in% list_z1_compo])
-  fully_included_z2<- diffman:::prepare_data(input_dt)$fully_included_z2
+  #fully_included_z2<- diffman:::prepare_data(input_dt)$fully_included_z2
   
   z2_to_tag <- copy(z2_to_tag_global)
   z2_to_tag <- z2_to_tag[z2 %in% input_dt$z2]
-  z2_to_tag$full_incl <- z2_to_tag$z2 %in% unique(fully_included_z2$z2)
+  #z2_to_tag$full_incl <- z2_to_tag$z2 %in% unique(fully_included_z2$z2)
   z2_to_tag$tag_init <- z2_to_tag$tag
   
   comp_diff_info <- global_diff_info[id_comp == as.character(num_comp)]
@@ -195,18 +196,17 @@ protect_component <- function(num_comp,compo,global_diff_info,data_rp,z2_to_tag_
     # area_issue <- l[[1]]
     # area_issue <-   l$`15200`
     
-    if (num_comp == 1 & i%%100 == 0) print(i)
+    if(num_comp == 1 & i%%100 == 0) print(i)
     i <- i+1
     
-    z2_to_tag <- actualiser_z2_to_tag(area_issue,list_z1_compo,input_dt,copy(z2_to_tag),checked_area_max_size,threshold) 
+    z2_to_tag <- actualiser_z2_to_tag(area_issue,list_z1_compo,input_dt,z2_to_tag,checked_area_max_size,threshold) 
      # z2_to_tag[tag!=tag_init]  
   }
-  
-  out <- copy(z2_to_tag)
 
-  # out[tag!=tag_init]  
+  # z2_to_tag[tag!=tag_init]  
+  
   # fin de la boucle 
-  return(out)
+  return(z2_to_tag)
 }
 
 # Je protège ici une zone à risque de différenciation obtenue via une checked area donnée
@@ -221,7 +221,7 @@ actualiser_z2_to_tag <- function(area_issue,list_z1_compo,input_dt,z2_to_tag,che
   
   handle_internal <- unique(area_issue$internal_checked_area_size)<= checked_area_max_size
   handle_external <- unique(area_issue$external_checked_area_size)<= checked_area_max_size
-  
+  #input_dt[order(z2)]
   # en amont récupérer 
   l <- calculer_zone_interne_externe(area_issue,list_z1_compo,input_dt,z2_to_tag_actualise)
   z2_full_incl <- l$z2_full_incl
@@ -282,11 +282,12 @@ calculer_zone_interne_externe <- function(area_issue,list_z1_compo,input_dt,z2_t
   z1_in_area <-unlist(strsplit(unique(as.character(area_issue$checked_area)),"-"))
   z1_out_area <- setdiff(list_z1_compo,z1_in_area)  
   
-  #On se limite au blanchiment des full_incl quand on regarde la differenciation interne
-  z2_full_incl <-input_dt[z1 %in% z1_in_area & z2 %in% z2_to_tag[full_incl == TRUE]$z2] 
-  # Rq : on a bien 1 commune pour 1 carreau ici par definition des z2 totalement inclus
+  #On se limite au blanchiment des carreaux complètements inclus dans la zone 
+  z2_in_and_out <- input_dt[z1 %in% z1_out_area]$z2 # les carreaux qui apparaissent dans le complémentaire de la zone
+  z2_full_incl <-input_dt[!z2 %in% z2_in_and_out] # les carreaux qui sont totalement inclus dans la zone checked
   
-  
+  # input_dt[,.(l = length(z1)),by ="z2"]
+  # input_dt
   # On définit  z2_full_excl par le complémentaire et on fait passer la table au niveau carreau (cf intersection prises en compte)
   z2_full_excl <-  
     input_dt[!paste0(z1,z2) %in% paste0(z2_full_incl$z1,z2_full_incl$z2)]# la zone a risque
@@ -300,5 +301,6 @@ calculer_zone_interne_externe <- function(area_issue,list_z1_compo,input_dt,z2_t
   
   return(list(z2_full_incl = z2_full_incl, z2_full_excl = z2_full_excl))
 }
+
 
 
